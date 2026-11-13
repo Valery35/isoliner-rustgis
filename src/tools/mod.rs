@@ -13,6 +13,8 @@ use serde_json::Value as J;
 use crate::report::{Report, ToolError};
 
 pub mod bed_grades;
+pub mod crossval;
+pub mod cv;
 pub mod declustering;
 pub mod geophys_profiles;
 pub mod line_dimension;
@@ -25,6 +27,7 @@ pub const OFFERED: &[&str] = &[
     "bed_grades_at_collars",
     "line_dimension",
     "experimental_variogram",
+    "crossvalidation",
 ];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
@@ -123,6 +126,7 @@ pub fn run(
         "bed_grades_at_collars" => Some(bed_grades::run(&v, report)),
         "line_dimension" => Some(line_dimension::run(&v, report)),
         "experimental_variogram" => Some(variogram::run(&v, report)),
+        "crossvalidation" => Some(crossval::run(&v, report)),
         _ => None,
     }
 }

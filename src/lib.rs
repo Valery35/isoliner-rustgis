@@ -15,6 +15,7 @@ pub mod field_format;
 pub mod fractal;
 pub mod geodemo;
 pub mod kb2d;
+pub mod krige;
 pub mod npy_rng;
 pub mod numpy;
 pub mod points;
@@ -22,6 +23,7 @@ pub mod product;
 pub mod pyfmt;
 pub mod report;
 pub mod tools;
+pub mod vgtable;
 // константы NumPy как есть, со всеми знаками исходника
 #[allow(clippy::excessive_precision, clippy::unreadable_literal)]
 pub mod ziggurat;

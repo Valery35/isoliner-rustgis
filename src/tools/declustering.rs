@@ -25,6 +25,13 @@ use crate::tools::Values;
 /// Имя поля значения на выходе, как `value_field` модуля: всё, что не
 /// буква, цифра или `_`, - в `_`, края без `_`, не длиннее 40 знаков.
 pub fn value_field(zfield: &str) -> String {
+    let s = san(zfield);
+    if s.is_empty() { "z".into() } else { s }
+}
+
+/// Имя поля из текста (`_san`): всё, что не буква, цифра или `_`, - в `_`,
+/// края без `_`, не длиннее 40 знаков. Пустое остаётся пустым.
+pub fn san(zfield: &str) -> String {
     let mut s = String::new();
     let mut gap = false;
     for c in zfield.trim().chars() {
@@ -41,8 +48,7 @@ pub fn value_field(zfield: &str) -> String {
     if gap {
         s.push('_');
     }
-    let s: String = s.trim_matches('_').chars().take(40).collect();
-    if s.is_empty() { "z".into() } else { s }
+    s.trim_matches('_').chars().take(40).collect()
 }
 
 /// Цифры для отчёта, как `result.stats` модуля.

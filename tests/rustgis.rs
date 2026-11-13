@@ -269,3 +269,32 @@ fn variogram_tables_through_rustgis() {
         "{msgs:?}"
     );
 }
+
+/// 1.08: остатки точками на месте скважин, метрики и советы в журнале.
+#[test]
+fn crossvalidation_through_rustgis() {
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "crossvalidation", "lang": "ru",
+        "params": {"input": "Скважины", "zfield": "kcl", "s1_sill": 20.0, "s1_range": 300.0},
+        "layers": {"Скважины": layer()}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let feats = reply["ok"]["layers"][0]["geojson"]["features"]
+        .as_array()
+        .unwrap();
+    assert_eq!(feats.len(), 48, "{reply}");
+    assert!(feats[0]["properties"]["z_est"].is_number());
+    let msgs: Vec<&str> = reply["ok"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        msgs.iter()
+            .any(|m| m.starts_with("Точек оценено: 48 из 48")),
+        "{msgs:?}"
+    );
+    assert!(msgs.iter().any(|m| m.starts_with("• Итог:")), "{msgs:?}");
+}
