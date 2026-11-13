@@ -1,4 +1,8 @@
-"""Эталоны default_rng NumPy для tests/data/npy_rng.json."""
+"""Эталоны default_rng NumPy для tests/data/npy_rng.json.
+
+Запуск Python из QGIS:
+    python -I -X utf8 tools/gen_rng_ref.py tests/data/npy_rng.json
+"""
 import json
 import sys
 
@@ -9,7 +13,6 @@ for seed in (1, 42, 2**40 + 5, 12345678901234567890123):
     r = np.random.default_rng(seed)
     st = r.bit_generator.state["state"]
     case = {"seed": str(seed), "state": str(st["state"]), "inc": str(st["inc"])}
-    case["u64"] = [str(int(x)) for x in r.integers(0, 2**63, 3, dtype=np.uint64)] if False else []
     r = np.random.default_rng(seed)
     case["random"] = [float(x) for x in r.random(5)]
     case["uniform"] = [float(r.uniform(0.35, 0.65)), float(r.uniform(0, 2 * np.pi))]
