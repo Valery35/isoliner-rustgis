@@ -327,3 +327,36 @@ fn method_crossvalidation_through_rustgis() {
         );
     }
 }
+
+/// 7.04: полигон с внутренним кольцом меряется по обоим кольцам, поля
+/// источника остаются в слое.
+#[test]
+fn minkowski_through_rustgis() {
+    let ring = |c: f64, r: f64| -> Vec<J> {
+        (0..=40)
+            .map(|k| {
+                let a = f64::from(k) * std::f64::consts::TAU / 40.0;
+                let rr = r * (1.0 + 0.15 * (5.0 * a).sin());
+                json!([56.0 + c + rr * a.cos(), 58.0 + rr * 0.6 * a.sin()])
+            })
+            .collect()
+    };
+    let poly = json!({"type": "FeatureCollection", "features": [{"type": "Feature",
+        "properties": {"name": "озеро"},
+        "geometry": {"type": "Polygon", "coordinates": [ring(0.0, 0.01), ring(0.0, 0.003)]}}]});
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "minkowski-dimension", "lang": "ru",
+        "params": {"features": "Контуры"}, "layers": {"Контуры": poly}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let f = &reply["ok"]["layers"][0]["geojson"]["features"][0];
+    assert!(f["properties"]["D_mink"].is_number(), "{reply}");
+    assert_eq!(f["properties"]["name"], "озеро");
+    let msgs = reply["ok"]["messages"].as_array().unwrap();
+    assert!(msgs.iter().any(|m| {
+        m.as_str()
+            .unwrap()
+            .starts_with("Размерность Минковского слоя")
+    }));
+}

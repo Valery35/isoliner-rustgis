@@ -1,7 +1,7 @@
 {
  "format": 1,
  "module": "isoliner",
- "version": "5.13.54",
+ "version": "5.13.55",
  "tools": [
   {
    "code": "1.05",
@@ -2832,6 +2832,104 @@
     {
      "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
      "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
+    }
+   ]
+  },
+  {
+   "code": "7.04",
+   "name": "minkowski_dimension",
+   "title": {
+    "ru": "Размерность Минковского (векторы)",
+    "en": "Minkowski dimension (vectors)"
+   },
+   "group": "7",
+   "help": {
+    "ru": "Box-counting напрямую по векторам. Линии и границы полигонов покрываются сеткой убывающего размера, наклон log N от log(1/размер) даёт размерность Минковского. Прямая линия и гладкая граница дают D около 1, речная сеть - 1.1-1.5, сильно изрезанная береговая линия - до 1.3 и выше.\n\nКаждый объект получает поле D_mink. отдельно считается и печатается в журнал D всего слоя как единого множества - для речной сети это размерность сети целиком, она выше размерности отдельных рукавов. Метод дополняет циркуль из 2.9: циркуль меряет извилистость одной линии, Минковский - заполнение плоскости набором объектов.\n\nПараметры: K - количество ступеней размеров (8-12 обычно, слишком большое K уводит мелкие ячейки ниже масштаба детальности линии, и D занижается к 1). Сдвигов сетки - случайные смещения с минимальным покрытием, снимают привязку к сетке (3-5). Фактор уплотнения - шаг выборки вдоль сегментов в долях ячейки, 0 - только вершины. Каждый объект получает и D_r2 - качество лог-лог аппроксимации. Ниже 0.85 оценке доверять нельзя.",
+    "en": "Box-counting directly over vectors: lines and polygon boundaries are covered by a grid of a decreasing size, the slope of log N versus log(1/size) gives the Minkowski dimension. A straight line and a smooth boundary give D near 1, a river network - 1.1-1.5, a heavily rugged coastline - up to 1.3 and above.\n\nEvery feature gets a D_mink field; separately the D of the whole layer as one set is computed and printed to the log - for a river network that is the dimension of the network as a whole, higher than that of the individual branches. The method complements the divider of 2.06: the divider measures the sinuosity of one line, Minkowski - the plane filling by a set of features.\n\nParameters: K - the size-ladder steps (8-12 typically; a too large K takes the small cells below the line detail scale and D drops towards 1); grid offsets - random shifts with the minimal cover, remove the grid alignment (3-5); the densify factor - the sampling step along the segments as a cell fraction, 0 - vertices only. Every feature also gets D_r2 - the log-log fit quality: below 0.85 the estimate cannot be trusted."
+   },
+   "params": [
+    {
+     "key": "FEATURES",
+     "kind": "features",
+     "label": {
+      "ru": "Линии или полигоны",
+      "en": "Lines or polygons"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "N_SIZES",
+     "kind": "integer",
+     "label": {
+      "ru": "Количество размеров сетки (K)",
+      "en": "Number of grid sizes (K)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 8,
+     "minimum": 4,
+     "maximum": 12,
+     "advanced": true
+    },
+    {
+     "key": "OFFSETS",
+     "kind": "integer",
+     "label": {
+      "ru": "Сдвигов сетки на размер",
+      "en": "Grid offsets per size"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 3,
+     "minimum": 1,
+     "maximum": 5,
+     "advanced": true
+    },
+    {
+     "key": "DENSIFY",
+     "kind": "number",
+     "label": {
+      "ru": "Фактор уплотнения выборки (0 = вершины)",
+      "en": "Sampling densify factor (0 = vertices)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.5,
+     "minimum": 0.0,
+     "maximum": 2.0,
+     "advanced": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Объекты с размерностью",
+      "en": "Features with the dimension"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "source"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Размерность Минковского слоя: D = %.3f (R² = %.3f).",
+     "en": "Minkowski dimension of the layer: D = %.3f (R² = %.3f)."
+    },
+    {
+     "ru": "R² ниже 0.85: степенной закон не выдержан, оценке доверять нельзя (уменьшите K или проверьте данные).",
+     "en": "R² below 0.85: the power law does not hold, the estimate cannot be trusted (reduce K or check the data)."
     }
    ]
   }

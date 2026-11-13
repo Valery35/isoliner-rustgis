@@ -31,6 +31,7 @@ pub const OFFERED: &[&str] = &[
     "experimental_variogram",
     "crossvalidation",
     "method_crossvalidation",
+    "minkowski_dimension",
 ];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
