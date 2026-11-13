@@ -1,0 +1,27 @@
+# Isoliner для RustGIS - расширение-процесс на крейте rustgis-kit.
+# Copyright (C) 2026 ООО «Информ++». Лицензия Apache 2.0.
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "isoliner-rustgis"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["ООО «Информ++»"]
+description = "Isoliner для RustGIS: инструменты модуля QGIS Isoliner (гриды, изолинии, геостатистика) расчётом на Rust"
+publish = false
+
+[dependencies]
+# общая основа расширений RustGIS линейки; до выпуска крейта - путём
+rustgis-kit = { path = "../rustgis-kit" }
+serde_json = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

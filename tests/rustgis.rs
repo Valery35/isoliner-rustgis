@@ -1,0 +1,114 @@
+// Isoliner для RustGIS.
+// Copyright (C) 2026 ООО «Информ++». Лицензия Apache 2.0.
+// SPDX-License-Identifier: Apache-2.0
+
+//! Запрос RustGIS одним запуском, как его шлёт RustGIS 0.6.0: слой точек
+//! в градусах без Z, значение из поля. Ответ - слой с полем `wt` и
+//! журнал на языке запроса.
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+use isoliner_rustgis::product::Isoliner;
+use serde_json::{Value as J, json};
+
+/// Сеть 6 на 6 через 0.001 градуса и плотное скопление богатых проб.
+fn layer() -> J {
+    let mut feats = Vec::new();
+    for i in 0..6 {
+        for j in 0..6 {
+            let (lon, lat) = (56.0 + f64::from(i) * 0.001, 58.0 + f64::from(j) * 0.001);
+            feats.push(json!({"type": "Feature", "properties": {"kcl": 20.0},
+                "geometry": {"type": "Point", "coordinates": [lon, lat]}}));
+        }
+    }
+    for k in 0..12 {
+        let (lon, lat) = (
+            56.0025 + f64::from(k % 4) * 0.00003,
+            58.0025 + f64::from(k / 4) * 0.00003,
+        );
+        feats.push(json!({"type": "Feature", "properties": {"kcl": 30.0},
+            "geometry": {"type": "Point", "coordinates": [lon, lat]}}));
+    }
+    json!({"type": "FeatureCollection", "features": feats})
+}
+
+fn ask(lang: &str, params: J) -> J {
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "declustering", "lang": lang,
+        "params": params, "layers": {"Скважины": layer()}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    serde_json::from_slice(&out).unwrap()
+}
+
+#[test]
+fn declustering_through_rustgis() {
+    let reply = ask("ru", json!({"input": "Скважины", "zfield": "kcl"}));
+    let layer = &reply["ok"]["layers"][0];
+    assert_eq!(layer["name"], "Точки с весами декластеризации", "{reply}");
+    let feats = layer["geojson"]["features"].as_array().unwrap();
+    assert_eq!(feats.len(), 48);
+    let wt: Vec<f64> = feats
+        .iter()
+        .map(|f| f["properties"]["wt"].as_f64().unwrap())
+        .collect();
+    // веса в слое округлены до четырёх значащих цифр, как у модуля
+    // (до половины единицы четвёртого знака на точку, 48 точек)
+    assert!((wt.iter().sum::<f64>() - 48.0).abs() < 0.03);
+    // скопление легче точки сети
+    let rich = feats
+        .iter()
+        .position(|f| f["properties"]["kcl"] == 30.0)
+        .unwrap();
+    let plain = feats
+        .iter()
+        .position(|f| f["properties"]["kcl"] == 20.0)
+        .unwrap();
+    assert!(wt[rich] < wt[plain], "{} {}", wt[rich], wt[plain]);
+    // точка ложится обратно в градусы
+    let c = &feats[plain]["geometry"]["coordinates"];
+    assert!((c[0].as_f64().unwrap() - 56.0).abs() < 0.01);
+    assert!((c[1].as_f64().unwrap() - 58.0).abs() < 0.01);
+    let msgs: Vec<&str> = reply["ok"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(J::as_str)
+        .collect();
+    assert_eq!(msgs[0], "== Декластеризация ==", "{msgs:?}");
+    assert!(
+        msgs[1].starts_with("Точек: 48, размер ячейки: "),
+        "{msgs:?}"
+    );
+    assert!(
+        msgs[3].starts_with("Декластеризованное среднее: "),
+        "{msgs:?}"
+    );
+}
+
+#[test]
+fn english_and_manual_cell() {
+    let reply = ask(
+        "en",
+        json!({"input": "Скважины", "zfield": "kcl", "mode": "Manual size", "cell_size": 0}),
+    );
+    let msgs: Vec<&str> = reply["ok"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        msgs[0].starts_with("Cell size not set - using "),
+        "{msgs:?}"
+    );
+    assert_eq!(msgs[1], "== Declustering ==");
+}
+
+#[test]
+fn refusal_without_value_field() {
+    // слой RustGIS без Z, поле значения не задано - отказ модуля
+    let reply = ask("ru", json!({"input": "Скважины"}));
+    let e = reply["error"].as_str().unwrap_or_default();
+    assert!(e.contains("геометрия слоя без Z"), "{reply}");
+}

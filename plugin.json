@@ -1,0 +1,40 @@
+{
+  "id": "isoliner",
+  "name": "Isoliner",
+  "version": "0.1.0",
+  "description": "Isoliner tools for RustGIS. They compute as in the Isoliner plugin for QGIS and take the same fields. The first tool is 1.05 Declustering.",
+  "author": "Inform++ LLC",
+  "license": "Apache-2.0",
+  "runtime": "process",
+  "session": true,
+  "run": { "windows": ["bin/isoliner-rustgis.exe", "rustgis-plugin"] },
+  "minRustgisVersion": "0.5.0",
+  "commands": [
+    { "id": "about", "label": "About\nIsoliner", "help": "About the extension with its version and the number of tools.", "icon": "info", "params": "{} (answers the title, the version of the extension and of the QGIS plugin it follows, the number of tools)" }
+  ],
+  "tools": [
+    {"id":"declustering","name":"1.05 Declustering (weights)","params":[{"kind":"pointLayer","label":"Points with values","name":"input","required":true},{"kind":"numericField","label":"Value field Z (empty = from the geometry)","name":"zfield"},{"choices":["Auto (size sweep)","Manual size"],"default":"Auto (size sweep)","kind":"choice","label":"Cell size","name":"mode"},{"default":0.0,"kind":"number","label":"Cell size for manual mode","name":"cell_size"},{"choices":["Minimum mean (clusters in the rich)","Maximum mean (clusters in the poor)"],"default":"Minimum mean (clusters in the rich)","kind":"choice","label":"Sweep objective","name":"objective"},{"default":24,"kind":"number","label":"Number of sizes in the sweep","name":"ncell"},{"default":1.0,"kind":"number","label":"Cell Y/X ratio","name":"aspect"},{"default":4,"kind":"number","label":"Grid-origin offsets (averaging)","name":"noff"}],"summary":"Cell declustering (a port of GSLIB declus).","toolbox":"Isoliner"}
+  ],
+  "i18n": {
+    "ru": {
+      "Cell declustering (a port of GSLIB declus).": "Когда одни блоки разбурены плотнее других, среднее и гистограмма по всем пробам смещаются в сторону переразведанных участков.",
+      "1.05 Declustering (weights)": "1.05 Декластеризация (веса)",
+      "Auto (size sweep)": "Авто (перебор размеров)",
+      "Cell Y/X ratio": "Соотношение ячейки Y/X",
+      "Cell size": "Размер ячейки",
+      "Cell size for manual mode": "Размер ячейки для ручного режима",
+      "Gives each sample a weight inverse to the local density and computes a representative declustered mean.": "Даёт каждой пробе вес, обратный локальной плотности, и считает представительное декластеризованное среднее.",
+      "Grid-origin offsets (averaging)": "Смещений начала сетки (усреднение)",
+      "Manual size": "Ручной размер",
+      "Maximum mean (clusters in the poor)": "Максимум среднего (скопления в бедном)",
+      "Minimum mean (clusters in the rich)": "Минимум среднего (скопления в богатом)",
+      "Number of sizes in the sweep": "Сколько размеров перебрать",
+      "Points with values": "Точки со значениями",
+      "Sweep objective": "Цель перебора",
+      "Value field Z (empty = from the geometry)": "Поле значения Z (пусто = из геометрии)",
+      "Isoliner tools for RustGIS. They compute as in the Isoliner plugin for QGIS and take the same fields. The first tool is 1.05 Declustering.": "Инструменты Isoliner для RustGIS. Они считают так же, как модуль Isoliner для QGIS, и принимают те же поля. Первый инструмент - 1.05 Декластеризация.",
+      "About\nIsoliner": "О расширении\nIsoliner",
+      "About the extension with its version and the number of tools.": "О расширении, его версия и количество инструментов."
+    }
+  }
+}

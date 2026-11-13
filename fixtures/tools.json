@@ -1,0 +1,246 @@
+{
+ "format": 1,
+ "module": "isoliner",
+ "version": "5.13.47",
+ "tools": [
+  {
+   "code": "1.05",
+   "name": "declustering",
+   "title": {
+    "ru": "Декластеризация (веса)",
+    "en": "Declustering (weights)"
+   },
+   "group": "1",
+   "help": {
+    "ru": "Когда одни блоки разбурены плотнее других, среднее и гистограмма по всем пробам смещаются в сторону переразведанных участков. Если гуще бурили богатые зоны, статистика завышена. Инструмент даёт каждой пробе вес, обратный локальной плотности, и считает представительное декластеризованное среднее. В скоплении вес меньше, на разрежённых участках больше. Это ячеистая декластеризация, порт GSLIB declus.\n\nРазмер ячейки подбирается перебором размеров либо задаётся вручную. На регулярной сети декластеризация ничего не меняет, веса выходят равными.\n\nВыход: слой точек с полем весов wt и HTML-отчёт. В отчёте сводка, две гистограммы значений, исходная и взвешенная, и кривая среднего от размера ячейки. Декластеризованное среднее идёт в подсчёт запасов и в поле «Среднее для простого кригинга» инструмента 1.01. Поле wt подаётся в гауссову симуляцию 3.06 для взвешенной гистограммы.\n\n**Цель перебора** задаёт, что считать правильным при переборе размера ячейки. Минимум среднего берут, когда сгущение сети попало в богатую зону. Без весов среднее тогда завышено, и правильным считается тот размер, при котором оно минимально. Максимум среднего это зеркальный случай, когда разбурена бедная зона. Выбирают не наугад, а по карте сети, глядя, где скважины стоят гуще.\n\n**Смещений начала сетки** сглаживает произвол в положении сетки. Веса зависят от того, где именно легла её граница, поэтому расчёт повторяется несколько раз со сдвинутым началом, а веса усредняются. Четыре смещения дают устойчивый результат, больше восьми почти ничего не добавляют.",
+    "en": "Cell declustering (a port of GSLIB declus). When samples are clustered unevenly - some blocks drilled denser - the naive global statistics shift toward the over-sampled areas: if rich zones were drilled denser, the mean and histogram are overstated. The tool gives each sample a weight inversely proportional to the local density (less in a cluster, more on its own) and computes a representative declustered mean.\n\nThe cell size is chosen automatically (a sweep over sizes, picking the minimum declustered mean) or set manually. On a regular grid declustering changes nothing - the weights are equal.\n\nOutput: a point layer with a wt weight field and an HTML report (summary, a histogram of the values, original and weighted, and the curve of the mean against cell size). The declustered mean is a ready estimate for reserve calculation and for the Mean of simple kriging (1.1). The wt field feeds the Gaussian simulation (3.06) for a weighted histogram.\n\n**Sweep objective** sets what counts as right while the cell size is swept. The minimum of the mean is taken when the clustering of the network fell into a rich zone: without weights the mean is overstated, and the right size is the one at which it is lowest. The maximum of the mean is the mirror case, where a poor zone was drilled densely. The choice is not made blindly: look at the map of the network and at where the holes stand closer together.\n\n**Grid origin offsets** smooth out the arbitrariness in the position of the grid. The weights depend on where its boundary happened to fall, so the computation is repeated several times with a shifted origin and the weights are averaged. Four offsets give a stable result, beyond eight there is almost nothing to gain."
+   },
+   "params": [
+    {
+     "key": "INPUT",
+     "kind": "points",
+     "label": {
+      "ru": "Точки со значениями",
+      "en": "Points with values"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "ZFIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле значения Z (пусто = из геометрии)",
+      "en": "Value field Z (empty = from the geometry)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true
+    },
+    {
+     "key": "MODE",
+     "kind": "enum",
+     "label": {
+      "ru": "Размер ячейки",
+      "en": "Cell size"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Авто (перебор размеров)",
+       "en": "Auto (size sweep)"
+      },
+      {
+       "ru": "Ручной размер",
+       "en": "Manual size"
+      }
+     ]
+    },
+    {
+     "key": "CELL_SIZE",
+     "kind": "number",
+     "label": {
+      "ru": "Размер ячейки для ручного режима",
+      "en": "Cell size for manual mode"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0
+    },
+    {
+     "key": "OBJECTIVE",
+     "kind": "enum",
+     "label": {
+      "ru": "Цель перебора",
+      "en": "Sweep objective"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Минимум среднего (скопления в богатом)",
+       "en": "Minimum mean (clusters in the rich)"
+      },
+      {
+       "ru": "Максимум среднего (скопления в бедном)",
+       "en": "Maximum mean (clusters in the poor)"
+      }
+     ],
+     "advanced": true
+    },
+    {
+     "key": "NCELL",
+     "kind": "integer",
+     "label": {
+      "ru": "Сколько размеров перебрать",
+      "en": "Number of sizes in the sweep"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 24,
+     "minimum": 3,
+     "maximum": 200,
+     "advanced": true
+    },
+    {
+     "key": "ASPECT",
+     "kind": "number",
+     "label": {
+      "ru": "Соотношение ячейки Y/X",
+      "en": "Cell Y/X ratio"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "minimum": 0.05,
+     "maximum": 20.0,
+     "advanced": true
+    },
+    {
+     "key": "NOFF",
+     "kind": "integer",
+     "label": {
+      "ru": "Смещений начала сетки (усреднение)",
+      "en": "Grid-origin offsets (averaging)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 4,
+     "minimum": 1,
+     "maximum": 16,
+     "advanced": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Точки с весами декластеризации",
+      "en": "Points with declustering weights"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "== Декластеризация ==",
+     "en": "== Declustering =="
+    },
+    {
+     "ru": "Точек: %d, размер ячейки: %.4g",
+     "en": "Points: %d, cell size: %.4g"
+    },
+    {
+     "ru": "Среднее без весов:          %.4g",
+     "en": "Naive mean:              %.4g"
+    },
+    {
+     "ru": "Декластеризованное среднее: %.4g (%+.2f%%)",
+     "en": "Declustered mean: %.4g (%+.2f%%)"
+    },
+    {
+     "ru": "Это среднее ставьте в «Среднее» простого кригинга, а поле wt - в поле весов SGS.",
+     "en": "Put this mean into the Mean of simple kriging, and the wt field into the SGS weight field."
+    },
+    {
+     "ru": "Слишком мало точек.",
+     "en": "Too few points."
+    },
+    {
+     "ru": "Размер ячейки не задан - взят %.4g.",
+     "en": "Cell size not set - using %.4g."
+    },
+    {
+     "ru": "Z геометрии",
+     "en": "the Z of the geometry"
+    },
+    {
+     "ru": "Недостаточно валидных точек с числовым значением.",
+     "en": "Not enough valid points with a numeric value."
+    },
+    {
+     "ru": "После усреднения совпадающих точек осталось < 2 узлов.",
+     "en": "After averaging coincident points fewer than 2 nodes remain."
+    },
+    {
+     "ru": "Поле «%s» не найдено в слое. Выберите поле значения Z.",
+     "en": "Field \"%s\" not found in the layer. Select a Z value field."
+    },
+    {
+     "ru": "Поле значения не задано, а геометрия слоя без Z. Укажите поле или подайте слой с отметкой в геометрии.",
+     "en": "No value field is given and the geometry of the layer carries no Z. Point at a field or supply a layer with the elevation in its geometry."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s» и %d без геометрии. Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\" and %d without geometry. Read: %d."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s». Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\". Read: %d."
+    },
+    {
+     "ru": "После отсева ураганных проб осталось < 2 точек.",
+     "en": "After outlier removal fewer than 2 points remain."
+    },
+    {
+     "ru": "Совпадающих точек усреднено: %d (осталось %d)",
+     "en": "Coincident points averaged: %d (%d remaining)"
+    },
+    {
+     "ru": "Ураганные пробы: срезано %d значений к [%.4g; %.4g].",
+     "en": "Outliers: %d values capped to [%.4g; %.4g]."
+    },
+    {
+     "ru": "Ураганные пробы: удалено %d точек вне [%.4g; %.4g], осталось %d.",
+     "en": "Outliers: %d points removed outside [%.4g; %.4g]; %d remaining."
+    }
+   ]
+  }
+ ]
+}

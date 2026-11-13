@@ -1,0 +1,82 @@
+// Isoliner для RustGIS.
+// Copyright (C) 2026 ООО «Информ++». Лицензия Apache 2.0.
+// SPDX-License-Identifier: Apache-2.0
+
+//! Расчёты инструментов по значениям прогона модуля, как
+//! `grid_isolines/tools/` модуля QGIS. Один файл на инструмент, имя -
+//! имя Processing.
+
+use rustgis_kit::catalog::Tool;
+use serde_json::Value as J;
+
+use crate::report::{Report, ToolError};
+
+pub mod declustering;
+
+/// Инструменты расширения в порядке панели: имя Processing.
+pub const OFFERED: &[&str] = &["declustering"];
+
+/// Значения прогона с умолчаниями из описания инструмента: поле, которое
+/// RustGIS не прислал, берёт `default` из `tools.json`, как окно QGIS.
+pub struct Values<'a> {
+    pub tool: &'a Tool,
+    pub values: &'a J,
+}
+
+impl<'a> Values<'a> {
+    pub fn new(tool: &'a Tool, values: &'a J) -> Self {
+        Self { tool, values }
+    }
+
+    /// Значение поля, а без него - умолчание описания.
+    pub fn get(&self, key: &str) -> J {
+        match &self.values[key] {
+            J::Null => self
+                .tool
+                .param(key)
+                .and_then(|p| p.default.clone())
+                .unwrap_or(J::Null),
+            v => v.clone(),
+        }
+    }
+
+    pub fn number(&self, key: &str) -> f64 {
+        crate::points::num(&self.get(key)).unwrap_or(f64::NAN)
+    }
+
+    /// Целое: дробное отбрасывается к нулю, как `int()` Python, пусто - 0.
+    pub fn integer(&self, key: &str) -> i64 {
+        let v = self.get(key);
+        v.as_i64()
+            .or_else(|| {
+                crate::points::num(&v)
+                    .filter(|x| x.is_finite())
+                    .map(|x| x.trunc() as i64)
+            })
+            .unwrap_or(0)
+    }
+
+    pub fn text(&self, key: &str) -> String {
+        self.get(key).as_str().unwrap_or("").to_string()
+    }
+
+    /// Объекты слоя (`[{"id", "xyz" | "parts", "attrs"}]`).
+    pub fn items(&self, key: &str) -> &'a [J] {
+        self.values[key].as_array().map_or(&[], Vec::as_slice)
+    }
+
+    /// Сведения о слое `@КЛЮЧ`.
+    pub fn layer(&self, key: &str) -> &'a J {
+        &self.values[format!("@{key}").as_str()]
+    }
+}
+
+/// Расчёт инструмента по имени: выходы по ключам. `None` - такого
+/// инструмента у расширения нет.
+pub fn run(tool: &Tool, values: &J, report: &mut Report) -> Option<Result<J, ToolError>> {
+    let v = Values::new(tool, values);
+    match tool.name.as_str() {
+        "declustering" => Some(declustering::run(&v, report).map(|(out, _)| out)),
+        _ => None,
+    }
+}
