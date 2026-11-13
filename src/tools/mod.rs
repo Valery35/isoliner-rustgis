@@ -15,9 +15,15 @@ use crate::report::{Report, ToolError};
 pub mod bed_grades;
 pub mod declustering;
 pub mod geophys_profiles;
+pub mod line_dimension;
 
 /// Инструменты расширения в порядке панели: имя Processing.
-pub const OFFERED: &[&str] = &["declustering", "geophysprofiles", "bed_grades_at_collars"];
+pub const OFFERED: &[&str] = &[
+    "declustering",
+    "geophysprofiles",
+    "bed_grades_at_collars",
+    "line_dimension",
+];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
 /// RustGIS не прислал, берёт `default` из `tools.json`, как окно QGIS.
@@ -101,6 +107,7 @@ pub fn run(
         "declustering" => Some(declustering::run(&v, report).map(|(out, _)| out)),
         "geophysprofiles" => Some(geophys_profiles::run(&v, report)),
         "bed_grades_at_collars" => Some(bed_grades::run(&v, report)),
+        "line_dimension" => Some(line_dimension::run(&v, report)),
         _ => None,
     }
 }

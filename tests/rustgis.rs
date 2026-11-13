@@ -199,3 +199,36 @@ fn bed_grades_through_rustgis() {
     assert!(h2["properties"]["kcl"].is_null());
     assert_eq!(h2["properties"]["n_samp"], 0);
 }
+
+/// 7.03: линия в градусах переводится в метры до расчёта, поле D у
+/// исходного объекта.
+#[test]
+fn line_dimension_through_rustgis() {
+    let zig: Vec<J> = (0..=60)
+        .map(|i| {
+            let lon = 56.0 + f64::from(i) * 0.0002;
+            let lat = 58.0 + if i % 2 == 0 { 0.0 } else { 0.0001 };
+            json!([lon, lat])
+        })
+        .collect();
+    let lines = json!({"type": "FeatureCollection", "features": [{"type": "Feature",
+        "properties": {"name": "зигзаг"},
+        "geometry": {"type": "LineString", "coordinates": zig}}]});
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "line-dimension", "lang": "ru",
+        "params": {"lines": "Линии"}, "layers": {"Линии": lines}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let f = &reply["ok"]["layers"][0]["geojson"]["features"][0];
+    let d = f["properties"]["D"].as_f64().unwrap();
+    assert!((1.0..=2.0).contains(&d), "{reply}");
+    assert_eq!(f["properties"]["name"], "зигзаг");
+    assert_eq!(f["geometry"]["type"], "LineString");
+    assert!(
+        reply["ok"]["messages"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("Среднее D по 1 линиям")
+    );
+}

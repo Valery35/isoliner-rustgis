@@ -12,6 +12,7 @@
 pub mod declus;
 pub mod drillhole;
 pub mod field_format;
+pub mod fractal;
 pub mod geodemo;
 pub mod npy_rng;
 pub mod numpy;
