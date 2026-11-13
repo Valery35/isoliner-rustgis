@@ -71,5 +71,24 @@ fn like_numpy_default_rng() {
             floats(&c["normal_scaled"]),
             "seed {seed}"
         );
+        let want = c["choice"].as_array().unwrap();
+        for (k, (n, m)) in [(50, 10), (20000, 100), (20000, 1000), (7, 7)]
+            .iter()
+            .enumerate()
+        {
+            let got: Vec<u64> = r
+                .choice(*n, *m)
+                .unwrap()
+                .into_iter()
+                .map(|v| v as u64)
+                .collect();
+            let w: Vec<u64> = want[k]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap())
+                .collect();
+            assert_eq!(got, w, "seed {seed} choice({n}, {m})");
+        }
     }
 }

@@ -214,6 +214,58 @@ impl Rng {
         low.wrapping_add(self.bounded(rng) as i64)
     }
 
+    /// Перемешать `data[first..]` с конца (`_shuffle_int`).
+    fn shuffle_int(&mut self, data: &mut [i64], first: usize) {
+        for i in (first..data.len()).rev() {
+            let j = self.bounded(i as u64) as usize;
+            data.swap(i, j);
+        }
+    }
+
+    /// `choice(n, size, replace=False)`: номера без повторов, как NumPy -
+    /// хвостовое перемешивание для больших выборок, иначе алгоритм Флойда
+    /// с перемешиванием. `None` - выборка больше совокупности.
+    pub fn choice(&mut self, n: usize, size: usize) -> Option<Vec<usize>> {
+        if size > n {
+            return None;
+        }
+        let out: Vec<i64> = if n > 10_000 && size > n / 50 {
+            let mut idx: Vec<i64> = (0..n as i64).collect();
+            self.shuffle_int(&mut idx, (n - size).max(1));
+            idx[n - size..].to_vec()
+        } else {
+            let mut idx = vec![0i64; size];
+            // наименьшая степень двойки больше 1.2 * size, минус один
+            let mut mask = (1.2 * size as f64) as u64;
+            for s in [1, 2, 4, 8, 16, 32] {
+                mask |= mask >> s;
+            }
+            let empty = u64::MAX;
+            let mut set = vec![empty; (mask + 1) as usize];
+            for j in (n - size)..n {
+                let val = self.bounded(j as u64);
+                let mut loc = (val & mask) as usize;
+                while set[loc] != empty && set[loc] != val {
+                    loc = (loc + 1) & mask as usize;
+                }
+                if set[loc] == empty {
+                    set[loc] = val;
+                    idx[j + size - n] = val as i64;
+                } else {
+                    let mut loc = (j as u64 & mask) as usize;
+                    while set[loc] != empty {
+                        loc = (loc + 1) & mask as usize;
+                    }
+                    set[loc] = j as u64;
+                    idx[j + size - n] = j as i64;
+                }
+            }
+            self.shuffle_int(&mut idx, 1);
+            idx
+        };
+        Some(out.into_iter().map(|v| v as usize).collect())
+    }
+
     /// Целое в [0, rng] (`random_bounded_uint64`, без маски).
     fn bounded(&mut self, rng: u64) -> u64 {
         if rng == 0 {

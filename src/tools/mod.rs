@@ -16,6 +16,7 @@ pub mod bed_grades;
 pub mod declustering;
 pub mod geophys_profiles;
 pub mod line_dimension;
+pub mod variogram;
 
 /// Инструменты расширения в порядке панели: имя Processing.
 pub const OFFERED: &[&str] = &[
@@ -23,6 +24,7 @@ pub const OFFERED: &[&str] = &[
     "geophysprofiles",
     "bed_grades_at_collars",
     "line_dimension",
+    "experimental_variogram",
 ];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
@@ -67,6 +69,18 @@ impl<'a> Values<'a> {
             .unwrap_or(0)
     }
 
+    /// Флажок: `bool()` Python от значения.
+    pub fn flag(&self, key: &str) -> bool {
+        match self.get(key) {
+            J::Bool(b) => b,
+            J::Number(n) => n.as_f64().is_some_and(|x| x != 0.0),
+            J::String(s) => !s.is_empty(),
+            J::Array(a) => !a.is_empty(),
+            J::Object(o) => !o.is_empty(),
+            J::Null => false,
+        }
+    }
+
     pub fn text(&self, key: &str) -> String {
         self.get(key).as_str().unwrap_or("").to_string()
     }
@@ -108,6 +122,7 @@ pub fn run(
         "geophysprofiles" => Some(geophys_profiles::run(&v, report)),
         "bed_grades_at_collars" => Some(bed_grades::run(&v, report)),
         "line_dimension" => Some(line_dimension::run(&v, report)),
+        "experimental_variogram" => Some(variogram::run(&v, report)),
         _ => None,
     }
 }

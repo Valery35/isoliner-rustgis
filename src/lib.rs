@@ -14,6 +14,7 @@ pub mod drillhole;
 pub mod field_format;
 pub mod fractal;
 pub mod geodemo;
+pub mod kb2d;
 pub mod npy_rng;
 pub mod numpy;
 pub mod points;

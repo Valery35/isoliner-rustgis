@@ -24,6 +24,9 @@ for seed in (1, 42, 2**40 + 5, 12345678901234567890123):
     case["mixed"] = ints
     case["normal"] = [float(x) for x in r.normal(0.0, 1.0, 6000)]
     case["normal_scaled"] = [float(x) for x in r.normal(5.0, 3.0, 50)]
+    # выборки без повторов: Флойд и хвостовое перемешивание
+    case["choice"] = [[int(i) for i in r.choice(n, m, replace=False)]
+                      for n, m in ((50, 10), (20000, 100), (20000, 1000), (7, 7))]
     out["cases"].append(case)
 json.dump(out, open(sys.argv[1], "w"), separators=(",", ":"))
 print("ok")

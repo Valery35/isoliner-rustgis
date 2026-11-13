@@ -143,6 +143,11 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
                     }
                 }
             }
+            // лишних выходов, которых модуль не дал, нет
+            let keys: Vec<String> = outputs(r).into_iter().map(|(k, _)| k).collect();
+            for k in out.as_object().into_iter().flatten().map(|(k, _)| k) {
+                assert!(keys.contains(k), "{tag}: лишний выход {k}");
+            }
             for (key, want) in outputs(r) {
                 let o = &out[&key];
                 assert!(o.is_object(), "{tag}: нет выхода {key}");
@@ -160,6 +165,13 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
                             continue;
                         }
                         for (j, field) in names.iter().enumerate() {
+                            // поля, которые модуль просит не сверять (дата подбора)
+                            if tol["skip_fields"]
+                                .as_array()
+                                .is_some_and(|s| s.iter().any(|x| x == field.as_str()))
+                            {
+                                continue;
+                            }
                             let (a, b) = (&g[part][j], &w[part][j]);
                             assert!(
                                 close(a, b, tol_for(tol, field)),

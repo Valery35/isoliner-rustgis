@@ -232,3 +232,40 @@ fn line_dimension_through_rustgis() {
             .starts_with("Среднее D по 1 линиям")
     );
 }
+
+/// 1.06: таблица вариограммы и таблица модели - выходы без геометрии,
+/// RustGIS получает их в `tables`, а не слоями.
+#[test]
+fn variogram_tables_through_rustgis() {
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "experimental-variogram", "lang": "ru",
+        "params": {"input": "Скважины", "zfield": "kcl", "n_lags": 6},
+        "layers": {"Скважины": layer()}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let tables = reply["ok"]["tables"].as_array().unwrap();
+    assert!(
+        reply["ok"]["layers"].as_array().unwrap().is_empty(),
+        "{reply}"
+    );
+    let vario = tables
+        .iter()
+        .find(|t| t["name"] == "Таблица вариограммы (расстояние, γ, количество пар)")
+        .unwrap();
+    let rows = vario["geojson"]["features"].as_array().unwrap();
+    assert!(!rows.is_empty());
+    assert_eq!(rows[0]["properties"]["series"], "все точки");
+    assert!(rows[0]["geometry"].is_null());
+    let model = tables
+        .iter()
+        .find(|t| t["name"] == "Модель вариограммы (новая таблица)");
+    if let Some(m) = model {
+        assert_eq!(m["geojson"]["features"][0]["properties"]["field"], "kcl");
+    }
+    let msgs = reply["ok"]["messages"].as_array().unwrap();
+    assert!(
+        msgs[0].as_str().unwrap().starts_with("Точек: 48."),
+        "{msgs:?}"
+    );
+}

@@ -64,6 +64,13 @@ pub fn mean(a: &[f64]) -> f64 {
     sum(a) / a.len() as f64
 }
 
+/// `np.var(a)`: среднее квадратов отклонений от среднего.
+pub fn var(a: &[f64]) -> f64 {
+    let m = mean(a);
+    let d: Vec<f64> = a.iter().map(|x| (x - m) * (x - m)).collect();
+    sum(&d) / a.len() as f64
+}
+
 /// `np.linspace(lo, hi, n)`: k-й узел `lo + k * step`, последний - ровно `hi`.
 pub fn linspace(lo: f64, hi: f64, n: usize) -> Vec<f64> {
     if n == 1 {
