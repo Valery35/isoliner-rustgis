@@ -1,7 +1,7 @@
 {
  "format": 1,
  "module": "isoliner",
- "version": "5.13.49",
+ "version": "5.13.54",
  "tools": [
   {
    "code": "1.05",
@@ -518,6 +518,10 @@
    ],
    "messages": [
     {
+     "ru": "ПК%d+%02d",
+     "en": "PK%d+%02d"
+    },
+    {
      "ru": "Не задан охват.",
      "en": "No extent set."
     },
@@ -532,6 +536,2302 @@
     {
      "ru": "Интерполируйте rho_k (2D Kriging или минимальная кривизна) и постройте изолинии - аномалия-пятно оконтурится. Поле rho_true - эталон без шума для проверки точности.",
      "en": "Interpolate rho_k (2D Kriging or minimum curvature) and build isolines - the spot anomaly will be outlined. The rho_true field is a noise-free reference for accuracy checks."
+    }
+   ]
+  },
+  {
+   "code": "4.13",
+   "name": "bed_grades_at_collars",
+   "title": {
+    "ru": "Содержания по пласту в устьях",
+    "en": "Bed grades at the collars"
+   },
+   "group": "4",
+   "help": {
+    "ru": "Средневзвешенные содержания по одному пласту, вынесенные в точки устьев скважин.\n\nНа входе три таблицы модели бурения: устья collar, интервалы interval с кодами пластов и пробы опробования chem с содержаниями. Проба стыкуется с интервалом по глубинам, а не по номеру записи. Нарезка опробования и нарезка литологии совпадают редко. Проба может лежать внутри пласта, пересекать границу двух или покрывать несколько.\n\nВес пробы это длина её перекрытия с пластом, поэтому проба, попавшая частично, учитывается частично.\n\n**Отсутствующее содержание не считается нулём.** Проба без значения по компоненту выпадает из среднего вместе со своим весом, а в результат кладётся охват, доля пласта, обеспеченная данными по этому компоненту. Подстановка нуля дала бы заведомо заниженное среднее, и тем сильнее, чем реже компонент встречается.\n\nНабор компонентов у разных предприятий разный, поэтому выбирается из полей самой таблицы, а не задан списком.\n\nВыход это точечный слой устьев: содержания, охват по каждому компоненту, мощность пласта по стволу и количество задевших проб. Слой готов ко входу 1.01 кригинга.",
+    "en": "Weighted-average grades of one bed, brought out to the points of the well collars.\n\nThree tables of the drilling model are the input: the collars, the intervals with bed codes, and the assay samples with grades. A sample is joined to an interval by depths rather than by record number: the sampling grid and the lithology grid rarely coincide, and a sample may lie inside a bed, cross the boundary of two, or span several.\n\nThe weight of a sample is the length of its overlap with the bed, so a sample that falls in partly is counted partly.\n\n**A missing grade is not treated as zero.** A sample without a value for a component drops out of the average together with its weight, and the coverage goes into the result: which share of the bed is backed by data for that particular component. Substituting zero would give a knowingly understated average, the more so the rarer the component is.\n\nThe set of components differs between companies, so it is chosen from the fields of the table itself rather than fixed by a list.\n\nThe output is a point layer of the collars: the grades, the coverage for each component, the thickness of the bed along the hole and the number of samples that touched it. The layer is ready as an input for 1.01 kriging."
+   },
+   "params": [
+    {
+     "key": "COLLAR",
+     "kind": "points",
+     "label": {
+      "ru": "Устья скважин (collar, точки)",
+      "en": "Collars (collar, points)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "CID",
+     "kind": "field",
+     "label": {
+      "ru": "Поле идентификатора скважины, устья",
+      "en": "Hole identifier field, collars"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "hole_id",
+     "parent": "COLLAR",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "INTERVAL",
+     "kind": "table",
+     "label": {
+      "ru": "Интервалы по стволу (interval, таблица)",
+      "en": "Intervals along the hole (interval, table)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "IID",
+     "kind": "field",
+     "label": {
+      "ru": "Поле идентификатора скважины, интервалы",
+      "en": "Hole identifier field, intervals"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "hole_id",
+     "parent": "INTERVAL",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "IFROM",
+     "kind": "field",
+     "label": {
+      "ru": "Поле кровли интервала (обычно from)",
+      "en": "Interval top field (usually from)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "from",
+     "parent": "INTERVAL",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "ITO",
+     "kind": "field",
+     "label": {
+      "ru": "Поле подошвы интервала (обычно to)",
+      "en": "Interval bottom field (usually to)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "to",
+     "parent": "INTERVAL",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "ICODE",
+     "kind": "field",
+     "label": {
+      "ru": "Поле кода пласта (обычно code)",
+      "en": "Bed code field (usually code)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "code",
+     "parent": "INTERVAL",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "CHEM",
+     "kind": "table",
+     "label": {
+      "ru": "Пробы опробования (chem, таблица)",
+      "en": "Assay samples (chem, table)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "HID",
+     "kind": "field",
+     "label": {
+      "ru": "Поле идентификатора скважины, пробы",
+      "en": "Hole identifier field, samples"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "hole_id",
+     "parent": "CHEM",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "HFROM",
+     "kind": "field",
+     "label": {
+      "ru": "Поле кровли пробы (обычно from)",
+      "en": "Sample top field (usually from)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "from",
+     "parent": "CHEM",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "HTO",
+     "kind": "field",
+     "label": {
+      "ru": "Поле подошвы пробы (обычно to)",
+      "en": "Sample bottom field (usually to)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "to",
+     "parent": "CHEM",
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "COMPONENTS",
+     "kind": "field",
+     "label": {
+      "ru": "Поля содержаний",
+      "en": "Grade fields"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": [],
+     "parent": "CHEM",
+     "numeric": true,
+     "multiple": true
+    },
+    {
+     "key": "BED",
+     "kind": "string",
+     "label": {
+      "ru": "Код пласта",
+      "en": "Bed code"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": ""
+    },
+    {
+     "key": "MIN_COVER",
+     "kind": "number",
+     "label": {
+      "ru": "Наименьший охват пласта пробами, доля",
+      "en": "Smallest sample coverage of the bed, fraction"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.5,
+     "minimum": 0.0,
+     "maximum": 1.0,
+     "advanced": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Содержания в устьях",
+      "en": "Grades at the collars"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Химия: проб %d по %d скважинам, компоненты %s.",
+     "en": "Chemistry: %d samples over %d holes, components %s."
+    },
+    {
+     "ru": "Химия: приведено к %d интервалам пласта «%s» в %d скважинах, средний охват %.0f процентов.",
+     "en": "Chemistry: composited to %d intervals of the bed \"%s\" in %d holes, mean coverage %.0f percent."
+    },
+    {
+     "ru": "Химия: скважин без проб по пласту %d, с охватом ниже порога %d, с перекрытием проб %d.",
+     "en": "Chemistry: %d holes without samples in the bed, %d below the coverage threshold, %d with overlapping samples."
+    },
+    {
+     "ru": "Нужны три таблицы: устья, интервалы и пробы.",
+     "en": "Three tables are required: collars, intervals and samples."
+    },
+    {
+     "ru": "Не задан код пласта. Он берётся из поля кода в таблице интервалов, например КрII.",
+     "en": "The bed code is not set. It comes from the code field of the interval table, for example KrII."
+    },
+    {
+     "ru": "Не выбрано ни одного поля содержаний. Набор компонентов у разных предприятий разный, поэтому задаётся полями самой таблицы проб.",
+     "en": "No grade field is selected. The set of components differs between companies, so it is taken from the fields of the sample table itself."
+    },
+    {
+     "ru": "Не найдены поля: %s. Укажите их явно.",
+     "en": "Fields not found: %s. Set them explicitly."
+    },
+    {
+     "ru": "Пласт «%s» не встретился ни в одной скважине. Проверьте код и поле кода.",
+     "en": "The bed \"%s\" was not met in any hole. Check the code and the code field."
+    },
+    {
+     "ru": "Ни одна скважина не получила значений. Устья не стыкуются с интервалами по идентификатору.",
+     "en": "No hole received any value: the collars do not join the intervals by identifier."
+    },
+    {
+     "ru": "Значения с низким охватом остаются в слое. Выбрасывать ли их, решает пользователь. Отбирайте по полю «cover» перед кригингом.",
+     "en": "Values with low coverage stay in the layer: throwing them away for the user would be wrong. Filter by the \"cover\" field before kriging."
+    }
+   ]
+  },
+  {
+   "code": "7.03",
+   "name": "line_dimension",
+   "title": {
+    "ru": "Размерность линий и границ",
+    "en": "Dimension of lines and boundaries"
+   },
+   "group": "7",
+   "help": {
+    "ru": "Считает размерность каждой линии методом циркуля (Ричардсона): линия проходится хордами убывающего раствора, наклон log N от log r даёт D. Прямая даёт 1, изрезанная линия - больше. для изолиний это диагностика сглаживания. Пересглаженные изолинии теряют изрезанность, и D падает к единице, а сравнение D до и после сглаживания показывает, сколько геометрии утрачено.\n\nВыход - те же линии с полями D и steps (количество шагов минимального циркуля), среднее D печатается в журнал. Полигоны принимаются тоже, меряется внешнее кольцо границы. Короткие линии (меньше 30 вершин или очень малой длины) получают пустое D.",
+    "en": "Computes the dimension of every line by the divider (Richardson) method: the line is walked with chords of a decreasing span, the slope of log N versus log r gives D. A straight line gives 1, a rugged one - more; for isolines this is a smoothing diagnostic: oversmoothed isolines lose their ruggedness and D drops towards one, and comparing D before and after smoothing shows how much geometry was eaten.\n\nPolygons are accepted too: the exterior ring of the boundary is measured. The output is the same lines with the D and steps fields (the step count of the smallest divider); the mean D is printed to the log. Short lines (fewer than 30 vertices or of a very small length) get an empty D."
+   },
+   "params": [
+    {
+     "key": "LINES",
+     "kind": "features",
+     "label": {
+      "ru": "Линии или полигоны",
+      "en": "Lines or polygons"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Объекты с размерностью",
+      "en": "Features with the dimension"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "source"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Среднее D по %d линиям: %.3f.",
+     "en": "Mean D over %d lines: %.3f."
+    }
+   ]
+  },
+  {
+   "code": "1.06",
+   "name": "experimental_variogram",
+   "title": {
+    "ru": "Вариограмма (экспериментальная)",
+    "en": "Variogram (experimental)"
+   },
+   "group": "1",
+   "help": {
+    "ru": "Строит изотропную экспериментальную полувариограмму по точкам. Облако пар усредняется по шагам расстояния. По ней видна структура данных, и наггет с радиусом берутся с графика, а не угадываются.\n\n**Поле группировки** необязательно. Для каждого значения поля строится своя кривая, и тогда видно, одна ли структура у совокупностей разной плотности, у поверхностной и подземной разведки.\n\nПодбор модели идёт по умолчанию и даёт наггет C0, вклад C, радиус a и саму модель. Сохраните их в профиль полем «Сохранить профиль под именем» и подставьте в «2D Kriging». Уже заданную модель можно наложить поверх облака и сравнить с ним.\n\nHTML-отчёт открывается в просмотрщике результатов: точки по шагам, модель и подобранная кривая, линия дисперсии данных. Необязательный слой-таблица несёт расстояние, γ(h) и количество пар, чтобы строить в самом QGIS.\n\n**Устойчивая оценка (Кресси-Хокинса)** гасит выбросы. Обычная оценка Матерона возводит разность пары в квадрат, поэтому одна ураганная проба задирает весь шаг, в который она попала. Включайте, когда точки по шагам скачут без видимой причины, а в данных есть отдельные резко выделяющиеся значения.\n\n**Ураганные пробы: перцентиль обрезки** отсекает хвосты распределения до расчёта. Единица означает по одному проценту с каждого края, ноль выключает. Флажок **Срезать к границе** меняет способ. Вместо удаления точки её значение приравнивается к границе интервала. Удаляют там, где выброс это ошибка замера, срезают там, где значение реально, но его влияние надо ограничить.\n\n**Минимум точек в группе** работает вместе с полем группировки. Задаётся в процентах от выборки, но не ниже тридцати точек, потому что вариограмма по десятку пар это шум, а не структура. Группы меньше порога пропускаются, их список уходит в журнал.\n\n**Дописать в таблицу моделей** указывает таблицу, куда лечь результату. Строки этого профиля заменяются новыми, чужие не трогаются, и повторный подбор именно заменяет строки, а не добавляет вторые. Иначе в таблице копились бы дубликаты, и какая из них свежая, было бы не видно. Без указанной таблицы результат уходит новым слоем **Модель вариограммы**, строка на структуру, поля те же, что читает 2D Kriging.",
+    "en": "Builds an isotropic experimental semivariogram from points: the pair cloud is averaged over distance intervals (lags). Helps reveal the structure of the data and set the variogram by eye, instead of guessing the nugget/range.\n\nGrouping field (optional): a separate curve is built for each field value - handy to compare populations of different density (surface vs underground survey) and check whether they share a structure.\n\nModel fitting (default) gives nugget C0, contribution C, range a and the model. Save them to a profile (the \"Save profile as\" field) and apply them in \"2D Kriging\". You can overlay an already-set model to compare it with the cloud.\n\nThe HTML report opens in the result viewer: points by lag, the model and the fitted curve, the data-variance line. The table layer (opt.) holds lag, γ(h) and the number of pairs for plotting in QGIS.\n\n**Append to the table of models** points at an existing table for the result to go into. The rows of this profile are replaced by the new ones, the rows of other profiles are not touched. Fitting the same profile again REPLACES its rows rather than adding second ones: otherwise duplicates would pile up and it would not be visible which row is the fresh one.\n\nThe table of models is not somebody else's data but a registry the tool is meant to keep, so editing it here is declared work rather than a side effect.\n\nIf no table is given, the result goes out as a new layer **Variogram model**: one row per structure, the same fields that 2D Kriging reads. That is how it is done the first time, when there is nothing to append to yet.\n\nThe profile name is taken from the corresponding field.\n\n**Robust estimator (Cressie-Hawkins)** computes the semivariance by a formula that damps outliers. The usual Matheron estimator squares the difference of a pair, so a single wild sample lifts the whole lag it fell into. Switch it on when the lag points jump about without a visible reason while the data hold a few sharply standing values.\n\n**Outliers: clipping percentile** cuts the tails of the distribution before the computation. A value of 1 means one percent is dropped from each end. Zero switches it off. The **Cap to the boundary** checkbox changes the method: instead of removing a point, its value is set to the boundary of the interval. Removal fits where an outlier is a measurement error, capping fits where the value is real but its influence has to be limited.\n\n**Minimum points in a group** works together with the grouping field. It is given as a percent of the sample but never below thirty points: a variogram over a dozen pairs is noise rather than structure. Groups below the threshold are skipped and listed in the log."
+   },
+   "params": [
+    {
+     "key": "INPUT",
+     "kind": "points",
+     "label": {
+      "ru": "Точки со значениями",
+      "en": "Points with values"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "ZFIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле значения Z (пусто = из геометрии)",
+      "en": "Value field Z (empty = from the geometry)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true
+    },
+    {
+     "key": "GROUP_FIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле группировки (напр. вид разведки)",
+      "en": "Grouping field (optional, e.g. survey type)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true
+    },
+    {
+     "key": "WEIGHT_FIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле весов декластеризации (из 1.05)",
+      "en": "Declustering weight field (from 1.05)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true,
+     "advanced": true
+    },
+    {
+     "key": "MIN_GROUP_PCT",
+     "kind": "number",
+     "label": {
+      "ru": "Минимум точек в группе, % от выборки (пол 30 точек)",
+      "en": "Minimum points per group, % of sample (floor 30 points)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 2.0,
+     "minimum": 0.0,
+     "maximum": 100.0,
+     "advanced": true
+    },
+    {
+     "key": "N_LAGS",
+     "kind": "integer",
+     "label": {
+      "ru": "Количество шагов",
+      "en": "Number of lags"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 15,
+     "minimum": 3,
+     "maximum": 100
+    },
+    {
+     "key": "MAXLAG",
+     "kind": "number",
+     "label": {
+      "ru": "Максимальное расстояние, в единицах слоя (0 = пол-диагонали)",
+      "en": "Maximum distance, in layer units (0 = half-diagonal)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0
+    },
+    {
+     "key": "FIT",
+     "kind": "bool",
+     "label": {
+      "ru": "Подобрать модель (рекомендация)",
+      "en": "Fit model (recommendation)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": true
+    },
+    {
+     "key": "FIT_MODEL",
+     "kind": "enum",
+     "label": {
+      "ru": "Модель для подбора",
+      "en": "Model to fit"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Авто (лучшая по R²)",
+       "en": "Auto (best by R²)"
+      },
+      {
+       "ru": "Сферическая",
+       "en": "Spherical"
+      },
+      {
+       "ru": "Экспоненциальная",
+       "en": "Exponential"
+      },
+      {
+       "ru": "Гауссова",
+       "en": "Gaussian"
+      }
+     ],
+     "advanced": true
+    },
+    {
+     "key": "ROBUST",
+     "kind": "bool",
+     "label": {
+      "ru": "Устойчивая оценка (Кресси-Хокинса)",
+      "en": "Robust estimator (Cressie-Hawkins)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false,
+     "advanced": true
+    },
+    {
+     "key": "VAL_PCT",
+     "kind": "number",
+     "label": {
+      "ru": "Ураганные пробы: перцентиль обрезки, % (0 = выкл.)",
+      "en": "Outliers: clip percentile, % (0 = off)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "maximum": 49.0,
+     "advanced": true
+    },
+    {
+     "key": "VAL_MIN",
+     "kind": "number",
+     "label": {
+      "ru": "Нижняя граница значения (пусто = нет)",
+      "en": "Lower value bound (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "VAL_MAX",
+     "kind": "number",
+     "label": {
+      "ru": "Верхняя граница значения (пусто = нет)",
+      "en": "Upper value bound (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "VAL_CAP",
+     "kind": "bool",
+     "label": {
+      "ru": "Срезать к границе (capping) вместо удаления",
+      "en": "Cap to bound (capping) instead of removing"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false,
+     "advanced": true
+    },
+    {
+     "key": "SAVE_PROFILE",
+     "kind": "string",
+     "label": {
+      "ru": "Имя профиля для таблицы (пусто = по полю значения)",
+      "en": "Profile name for the table (empty = after the value field)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "optional": true
+    },
+    {
+     "key": "OUT_MODEL",
+     "kind": "sink",
+     "label": {
+      "ru": "Модель вариограммы (новая таблица)",
+      "en": "Variogram model (new table)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "none",
+     "optional": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Таблица вариограммы (расстояние, γ, количество пар)",
+      "en": "Variogram table (lag, γ, number of pairs)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "none",
+     "optional": true
+    }
+   ],
+   "messages": [
+    {
+     "ru": "автоподбор 1.06, изотропная. Анизотропию проставляет 1.07 по вариограммной карте",
+     "en": "automatic fit in 1.06, isotropic; the anisotropy is filled in by 1.07 off the variogram map"
+    },
+    {
+     "ru": "Точек: %d. Дисперсия данных: %.4g (ориентир для суммарного порога).",
+     "en": "Points: %d. Data variance: %.4g (a guide for the total sill)."
+    },
+    {
+     "ru": "без имени",
+     "en": "unnamed"
+    },
+    {
+     "ru": "Точек много - для расчёта пар использована случайная подвыборка %d точек.",
+     "en": "Many points - a random subsample of %d points was used for pair computation."
+    },
+    {
+     "ru": "все точки",
+     "en": "all points"
+    },
+    {
+     "ru": "Максимальное расстояние (%.4g) меньше типичного шага между точками (~%.4g) - пар почти нет. Значение задаётся в единицах слоя (обычно метры).",
+     "en": "The maximum distance (%.4g) is smaller than the typical point spacing (~%.4g) - almost no pairs. The value is in layer units (usually metres)."
+    },
+    {
+     "ru": "Групп больше 12 - группировка пропущена.",
+     "en": "More than 12 groups - grouping skipped."
+    },
+    {
+     "ru": "Подбор: модель %s, C0=%.4g, C=%.4g, a=%.4g, R²=%.3f",
+     "en": "Fit: model %s, C0=%.4g, C=%.4g, a=%.4g, R²=%.3f"
+    },
+    {
+     "ru": "Пары взвешены декластеризацией (поле «%s»).",
+     "en": "Pairs weighted by declustering (field \"%s\")."
+    },
+    {
+     "ru": "Поле весов содержит пустые или неположительные значения - веса игнорируются.",
+     "en": "The weight field has empty or non-positive values - weights ignored."
+    },
+    {
+     "ru": "Не удалось прочитать поле весов - веса игнорируются.",
+     "en": "Could not read the weight field - weights ignored."
+    },
+    {
+     "ru": "В поле группировки меньше 2 значений - строю только общую кривую.",
+     "en": "The grouping field has fewer than 2 values - building only the overall curve."
+    },
+    {
+     "ru": "Группы меньше %d точек пропущены: %s.",
+     "en": "Groups smaller than %d points skipped: %s."
+    },
+    {
+     "ru": "(пусто)",
+     "en": "(empty)"
+    },
+    {
+     "ru": "Степенная",
+     "en": "Power"
+    },
+    {
+     "ru": "Первый шаг: h=%.4g, пар %d, γ=%.4g при дисперсии данных %.4g.",
+     "en": "First lag: h=%.4g, pairs %d, gamma=%.4g against a data variance of %.4g."
+    },
+    {
+     "ru": "Пары, формирующие наггет (внутри первого шага):",
+     "en": "Pairs that form the nugget (within the first lag):"
+    },
+    {
+     "ru": "Качество подгонки R²=%.3f ниже %.2g: модель почти ничего не объясняет. Пользоваться её параметрами как есть нельзя - проверьте выбросы и парные близкие точки.",
+     "en": "Fit quality R2=%.3f is below %.2g: the model explains next to nothing. Its parameters cannot be used as they are - check for outliers and pairs of nearby points."
+    },
+    {
+     "ru": "Доля наггета %.0f%% от суммарного порога. Связь на коротких расстояниях не разрешена. Кригинг по такой модели сглаживает оценку до среднего, а на карте дают «бычьи глаза».",
+     "en": "The nugget is %.0f%% of the total sill: correlation at short distances is not resolved. Kriging with such a model smooths the estimate towards the mean and produces bull's eyes on the map."
+    },
+    {
+     "ru": "На первом шаге разброс уже выше общей дисперсии. Описать это можно только наггетом, и кригинг после такого подбора будет возвращать среднее вместо карты.",
+     "en": "At the first lag the spread already exceeds the overall variance. Only a nugget can describe this, and kriging fitted this way returns the mean instead of a map."
+    },
+    {
+     "ru": "  расстояние %.4g, значения %.4g и %.4g, вклад γ=%.4g (x %.6g y %.6g / x %.6g y %.6g)",
+     "en": "  distance %.4g, values %.4g and %.4g, contribution gamma=%.4g (x %.6g y %.6g / x %.6g y %.6g)"
+    },
+    {
+     "ru": "Мало точек (%d): оценка кригинга и вариограммы неустойчива.",
+     "en": "Few points (%d): the kriging and variogram estimates are unstable."
+    },
+    {
+     "ru": "Точек с совпадающими координатами: %d. Частая причина вырожденной матрицы и артефактов. Уберите дубли или усредните пробы в одной точке.",
+     "en": "Points with coinciding coordinates: %d. A common cause of a singular matrix and artefacts. Remove duplicates or average the samples at one location."
+    },
+    {
+     "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
+     "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
+    },
+    {
+     "ru": "Z геометрии",
+     "en": "the Z of the geometry"
+    },
+    {
+     "ru": "Недостаточно валидных точек с числовым значением.",
+     "en": "Not enough valid points with a numeric value."
+    },
+    {
+     "ru": "После усреднения совпадающих точек осталось < 2 узлов.",
+     "en": "After averaging coincident points fewer than 2 nodes remain."
+    },
+    {
+     "ru": "Поле «%s» не найдено в слое. Выберите поле значения Z.",
+     "en": "Field \"%s\" not found in the layer. Select a Z value field."
+    },
+    {
+     "ru": "Поле значения не задано, а геометрия слоя без Z. Укажите поле или подайте слой с отметкой в геометрии.",
+     "en": "No value field is given and the geometry of the layer carries no Z. Point at a field or supply a layer with the elevation in its geometry."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s» и %d без геометрии. Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\" and %d without geometry. Read: %d."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s». Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\". Read: %d."
+    },
+    {
+     "ru": "После отсева ураганных проб осталось < 2 точек.",
+     "en": "After outlier removal fewer than 2 points remain."
+    },
+    {
+     "ru": "Совпадающих точек усреднено: %d (осталось %d)",
+     "en": "Coincident points averaged: %d (%d remaining)"
+    },
+    {
+     "ru": "Ураганные пробы: срезано %d значений к [%.4g; %.4g].",
+     "en": "Outliers: %d values capped to [%.4g; %.4g]."
+    },
+    {
+     "ru": "Ураганные пробы: удалено %d точек вне [%.4g; %.4g], осталось %d.",
+     "en": "Outliers: %d points removed outside [%.4g; %.4g]; %d remaining."
+    }
+   ]
+  },
+  {
+   "code": "1.08",
+   "name": "crossvalidation",
+   "title": {
+    "ru": "Кросс-валидация вариограммы",
+    "en": "Variogram cross-validation"
+   },
+   "group": "1",
+   "help": {
+    "ru": "Скользящий контроль (leave-one-out): каждая скважина по очереди исключается, её значение предсказывается кригингом по остальным, и сравнивается с фактическим. Помогает подобрать вариограмму (наггет, радиус, модель) по величине ошибки, а не на глаз.\n\nВ Журнал выводятся метрики: ME (смещение, к 0), RMSE (меньше - лучше), MSDR (к 1 - вариограмма адекватна по масштабу), R. Перебирайте параметры и сравнивайте RMSE и MSDR.\n\nНеобязательный слой остатков - точки со следующими полями:\n  • <номер скважины> - если задано «Поле номера скважины»,\n  • <имя проверяемого поля> - фактическое значение (факт),\n  • z_est - оценка кригинга по остальным точкам (LOO),\n  • error - оценка минус факт (минус: занижено, плюс: завышено),\n  • abs_error - модуль ошибки,\n  • std_resid - стандартизованный остаток: error / стандартную ошибку кригинга, со знаком (это не дисперсия).\nПо нему видно, где модель промахивается.\n\nHTML-отчёт (по умолчанию) открывается в просмотрщике результатов: интерактивный график «оценка vs факт», гистограмма ошибок и таблица метрик.\n\n**Снять полиномиальный тренд** и **степень тренда** повторяют одноимённые параметры 2D Kriging и нужны, чтобы проверка шла в тех же условиях, что и будущий расчёт. Проверять вариограмму без тренда, а строить грид с ним, значит мерить не то.\n\n**Сохранить профиль под именем** записывает проверенный набор параметров под указанным именем, и дальше он подставляется в 2D Kriging одним выбором. Пустое поле означает, что профиль не сохраняется, и результат проверки остаётся только в отчёте.",
+    "en": "Leave-one-out cross-validation: each well is removed in turn, its value is predicted by kriging from the rest, and compared with the actual value. Helps tune the variogram (nugget, range, model) by error rather than by eye.\n\nThe Log reports metrics: ME (bias, → 0), RMSE (lower is better), MSDR (→ 1 means the variogram is adequate in scale), R. Try different parameters and compare RMSE and MSDR.\n\nResiduals layer (opt.) - points with the following fields:\n  • <well number> - if \"Well number field\" is set;\n  • <validated field name> - the actual value;\n  • z_est - kriging estimate from the other points (LOO);\n  • error - estimate minus actual (minus: under, plus: over);\n  • abs_error - absolute error;\n  • std_resid - standardized residual: error / kriging standard error, signed (not a variance).\nIt shows where the model misses.\n\nThe HTML report (default) opens in the result viewer: an interactive \"estimate vs actual\" plot, an error histogram and a metrics table.\n\n**Remove a polynomial trend** and **trend degree** repeat the parameters of the same name in 2D Kriging and are needed so that the check runs under the same conditions as the future computation. Checking a variogram without a trend and then building the grid with one means measuring the wrong thing.\n\n**Save the profile under a name** records the checked set of parameters under the given name, and from then on it is applied in 2D Kriging by a single choice. An empty field means the profile is not saved and the result of the check stays in the report only."
+   },
+   "params": [
+    {
+     "key": "INPUT",
+     "kind": "points",
+     "label": {
+      "ru": "Точки со значениями",
+      "en": "Points with values"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "ZFIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле значения Z (пусто = из геометрии)",
+      "en": "Value field Z (empty = from the geometry)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true
+    },
+    {
+     "key": "IDFIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле номера скважины",
+      "en": "Well number field"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true
+    },
+    {
+     "key": "WEIGHT_FIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле весов декластеризации (из 1.05)",
+      "en": "Declustering weight field (from 1.05)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true,
+     "advanced": true
+    },
+    {
+     "key": "KTYPE",
+     "kind": "enum",
+     "label": {
+      "ru": "Тип кригинга",
+      "en": "Kriging type"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Ординарный (OK)",
+       "en": "Ordinary (OK)"
+      },
+      {
+       "ru": "Простой (SK)",
+       "en": "Simple (SK)"
+      }
+     ]
+    },
+    {
+     "key": "RADIUS",
+     "kind": "number",
+     "label": {
+      "ru": "Радиус поиска (0 = вся выборка)",
+      "en": "Search radius (0 = whole sample)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0
+    },
+    {
+     "key": "MIN_POINTS",
+     "kind": "integer",
+     "label": {
+      "ru": "Мин. количество точек",
+      "en": "Min. number of points"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1,
+     "minimum": 1
+    },
+    {
+     "key": "MAX_POINTS",
+     "kind": "integer",
+     "label": {
+      "ru": "Макс. количество точек",
+      "en": "Max. number of points"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 24,
+     "minimum": 1,
+     "maximum": 120
+    },
+    {
+     "key": "SKMEAN",
+     "kind": "number",
+     "label": {
+      "ru": "Среднее для простого кригинга",
+      "en": "Mean for simple kriging"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "NUGGET",
+     "kind": "number",
+     "label": {
+      "ru": "Наггет C0",
+      "en": "Nugget C0"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_MODEL",
+     "kind": "enum",
+     "label": {
+      "ru": "Структура 1 · модель",
+      "en": "Structure 1 · model"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Сферическая",
+       "en": "Spherical"
+      },
+      {
+       "ru": "Экспоненциальная",
+       "en": "Exponential"
+      },
+      {
+       "ru": "Гауссова",
+       "en": "Gaussian"
+      },
+      {
+       "ru": "Степенная",
+       "en": "Power"
+      }
+     ],
+     "advanced": true
+    },
+    {
+     "key": "S1_SILL",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · порог/вклад C",
+      "en": "Structure 1 · sill/contribution C"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_RANGE",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · радиус корреляции a (0 = авто)",
+      "en": "Structure 1 · correlation range a (0=auto)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_AZIMUTH",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · азимут, °",
+      "en": "Structure 1 · azimuth, °"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_ANIS",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · анизотропия (малая/главная)",
+      "en": "Structure 1 · anisotropy (minor/major)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "advanced": true
+    },
+    {
+     "key": "VAL_PCT",
+     "kind": "number",
+     "label": {
+      "ru": "Ураганные пробы: перцентиль обрезки, % (0 = выкл.)",
+      "en": "Outliers: clip percentile, % (0 = off)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "maximum": 49.0,
+     "advanced": true
+    },
+    {
+     "key": "VAL_MIN",
+     "kind": "number",
+     "label": {
+      "ru": "Нижняя граница значения (пусто = нет)",
+      "en": "Lower value bound (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "VAL_MAX",
+     "kind": "number",
+     "label": {
+      "ru": "Верхняя граница значения (пусто = нет)",
+      "en": "Upper value bound (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "VAL_CAP",
+     "kind": "bool",
+     "label": {
+      "ru": "Срезать к границе (capping) вместо удаления",
+      "en": "Cap to bound (capping) instead of removing"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false,
+     "advanced": true
+    },
+    {
+     "key": "DETREND",
+     "kind": "bool",
+     "label": {
+      "ru": "Снять полиномиальный тренд",
+      "en": "Remove polynomial trend"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false
+    },
+    {
+     "key": "DETREND_DEG",
+     "kind": "enum",
+     "label": {
+      "ru": "Степень тренда",
+      "en": "Trend degree"
+     },
+     "hint": {
+      "ru": "Включайте для отметок пласта и мощностей с общим падением, а для химии без тренда толку почти нет. Тренд снимается МНК до кригинга, кригуются остатки, и тренд возвращается к оценке. Степени 1 обычно хватает. Степень 2 может вобрать в тренд часть настоящей структуры, и тогда смотрите вариограмму остатков.",
+      "en": "The regional trend is removed by least squares before kriging, the residuals are kriged, and the trend is added back to the estimate. Useful for seam marks and thicknesses with a general dip. For chemistry without a trend the effect is negligible. Degree 1 is usually enough, degree 2 can absorb part of the real structure into the trend, so watch the residual variogram."
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "1 (плоскость)",
+       "en": "1 (plane)"
+      },
+      {
+       "ru": "2 (квадратичная)",
+       "en": "2 (quadratic)"
+      }
+     ]
+    },
+    {
+     "key": "VG_TABLE",
+     "kind": "table",
+     "label": {
+      "ru": "Модели вариограмм (таблица)",
+      "en": "Variogram models (table)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true
+    },
+    {
+     "key": "VG_NAME",
+     "kind": "string",
+     "label": {
+      "ru": "Профиль из таблицы (пусто = поля ниже)",
+      "en": "Profile from the table (empty = the fields below)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "optional": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Слой остатков (точки)",
+      "en": "Residuals layer (points)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point",
+     "optional": true
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Дисперсия данных: %.4g. Ориентир: суммарный силл (C0 + вклады C) задавайте близким к ней. Наггет и силл - в абсолютных единицах дисперсии, не 0-1.",
+     "en": "Data variance: %.4g. Guide: set the total sill (C0 + contributions C) close to it. Nugget and sill are in absolute variance units, not 0-1."
+    },
+    {
+     "ru": "Кросс-валидация по %d точкам…",
+     "en": "Cross-validation over %d points…"
+    },
+    {
+     "ru": "== Кросс-валидация (leave-one-out) ==",
+     "en": "== Cross-validation (leave-one-out) =="
+    },
+    {
+     "ru": "Точек оценено: %d из %d",
+     "en": "Points estimated: %d of %d"
+    },
+    {
+     "ru": "ME (смещение):   %+.4g   (ближе к 0 - лучше)",
+     "en": "ME (bias):       %+.4g   (closer to 0 is better)"
+    },
+    {
+     "ru": "RMSE:            %.4g   (меньше - лучше)",
+     "en": "RMSE:            %.4g   (lower is better)"
+    },
+    {
+     "ru": "MSDR:            %.3f   (ближе к 1 - лучше)",
+     "en": "MSDR:            %.3f   (closer to 1 is better)"
+    },
+    {
+     "ru": "R (оценка/факт): %.3f",
+     "en": "R (estimate/actual): %.3f"
+    },
+    {
+     "ru": "Слишком мало оценённых точек.",
+     "en": "Too few estimated points."
+    },
+    {
+     "ru": "Метрики взвешены декластеризацией (поле «%s»).",
+     "en": "Metrics weighted by declustering (field \"%s\")."
+    },
+    {
+     "ru": "Прервано пользователем.",
+     "en": "Cancelled by the user."
+    },
+    {
+     "ru": "Снятие тренда отключено: точек %d, для степени %d нужно больше %d.",
+     "en": "Detrending off: %d points, degree %d needs more than %d."
+    },
+    {
+     "ru": "Снят тренд степени %d: убрано %.1f%% дисперсии. Тренд переподбирается на каждом шаге LOO по остальным точкам, вариограмму задавайте по остаткам.",
+     "en": "Trend of degree %d removed: %.1f%% of variance taken out. The trend is refit at each LOO step on the remaining points, fit the variogram on the residuals."
+    },
+    {
+     "ru": "Вариограмма из таблицы, профиль «%s»: наггет %.4g, структур %d. Поля вариограммы в окне при этом не читаются.",
+     "en": "Variogram from the table, profile \"%s\": nugget %.4g, structures %d. The variogram fields in the dialog are not read in this case."
+    },
+    {
+     "ru": "Таблица вариограмм: %s",
+     "en": "Variogram table: %s"
+    },
+    {
+     "ru": "В таблице вариограмм нет ни одной годной модели.",
+     "en": "The variogram table holds no usable model."
+    },
+    {
+     "ru": "Профиль «%s» в таблице не найден. Есть: %s.",
+     "en": "Profile \"%s\" is not in the table. Available: %s."
+    },
+    {
+     "ru": "Задан только наггет (структурный вклад C = 0): кригинг выродится в локальное среднее, поверхность будет почти плоской.",
+     "en": "Only the nugget is set (structural contribution C = 0): kriging degenerates into a local mean and the surface will be almost flat."
+    },
+    {
+     "ru": "Гауссова модель: наггет повышен с %.4g до %.4g для устойчивости (минимум %g%% структурного силла).",
+     "en": "Gaussian model: nugget raised from %.4g to %.4g for stability (minimum %g%% of the structural sill)."
+    },
+    {
+     "ru": "Поле весов содержит пустые или неположительные значения - веса игнорируются.",
+     "en": "The weight field has empty or non-positive values - weights ignored."
+    },
+    {
+     "ru": "В таблице несколько профилей (%s). Укажите, какой брать.",
+     "en": "The table holds several profiles (%s). Say which one to take."
+    },
+    {
+     "ru": "Структура %d: у степенной модели поле «радиус a» это показатель ω (0 < ω < 2), а не расстояние. Задано %.4g, взято %.3f. При показателе в метрах ковариация переполняется, и оценка выходит мусором.",
+     "en": "Structure %d: in the power model the \"range a\" field is the exponent ω (0 < ω < 2), not a distance. %.4g was given, %.3f is used. With an exponent in metres the covariance overflows and the estimate comes out as rubbish."
+    },
+    {
+     "ru": "ME заметно отличается от 0 (%+.3g): возможен систематический сдвиг - проверьте данные и тип кригинга (для простого - заданное среднее).",
+     "en": "ME differs noticeably from 0 (%+.3g): possible systematic shift - check the data and the kriging type (for simple kriging, the specified mean)."
+    },
+    {
+     "ru": "ME близок к 0: систематического смещения нет.",
+     "en": "ME close to 0: no systematic bias."
+    },
+    {
+     "ru": "Итог: параметры можно утверждать - перенесите ту же вариограмму и настройки поиска в «2D Kriging».",
+     "en": "Verdict: the parameters can be accepted - carry the same variogram and search settings into \"2D Kriging\"."
+    },
+    {
+     "ru": "Итог: параметры стоит подправить (см. ниже) и повторить кросс-валидацию перед финальным кригингом.",
+     "en": "Verdict: the parameters should be adjusted (see below) and cross-validation repeated before the final kriging."
+    },
+    {
+     "ru": "Не удалось прочитать поле весов - веса игнорируются.",
+     "en": "Could not read the weight field - weights ignored."
+    },
+    {
+     "ru": "Структура %d: степенная модель - поле «радиус a» это показатель ω (0<ω<2), а не радиус. Задан 0, взят ω=1.",
+     "en": "Structure %d: power model - the \"range a\" field is the exponent ω (0<ω<2), not a range; 0 given, ω=1 used."
+    },
+    {
+     "ru": "MSDR заметно больше 1 (%.3g): карта стандартной ошибки занижена. Умножьте наггет C0 и вклады C на MSDR (радиус и модель не трогайте) и пересчитайте - сами оценки не изменятся, поправится только дисперсия кригинга.",
+     "en": "MSDR noticeably above 1 (%.3g): the standard-error map is understated. Multiply nugget C0 and contributions C by MSDR (leave range and model) and recompute - the estimates won't change, only the kriging variance is corrected."
+    },
+    {
+     "ru": "Низкая корреляция (R=%.2f): модель слабо предсказывает - попробуйте другой радиус, модель или анизотропию. Либо это предел данных (короткомасштабная изменчивость, зоны замещения).",
+     "en": "Low correlation (R=%.2f): the model predicts poorly - try a different range, model or anisotropy; or it is the data's limit (short-range variability, replacement zones)."
+    },
+    {
+     "ru": "Структура %d: показатель степенной модели ω=%.3g вне (0; 2) - приведён к диапазону.",
+     "en": "Structure %d: power-model exponent ω=%.3g outside (0; 2) - clamped to range."
+    },
+    {
+     "ru": "MSDR меньше 1 (%.3g): неопределённость завышена. Разделите наггет C0 и вклады C на MSDR (радиус и модель не трогайте) и пересчитайте - оценки не изменятся.",
+     "en": "MSDR below 1 (%.3g): uncertainty is overstated. Divide nugget C0 and contributions C by MSDR (leave range and model) and recompute - the estimates won't change."
+    },
+    {
+     "ru": "MSDR близок к 1 (%.3g, полоса от 0.7 до 1.3): масштаб вариограммы подобран адекватно.",
+     "en": "MSDR close to 1 (%.3g, band from 0.7 to 1.3): the variogram scale is adequate."
+    },
+    {
+     "ru": "Высокая корреляция (R=%.2f): оценки хорошо согласуются с фактом.",
+     "en": "High correlation (R=%.2f): estimates agree well with the actual values."
+    },
+    {
+     "ru": "Первый шаг: h=%.4g, пар %d, γ=%.4g при дисперсии данных %.4g.",
+     "en": "First lag: h=%.4g, pairs %d, gamma=%.4g against a data variance of %.4g."
+    },
+    {
+     "ru": "Пары, формирующие наггет (внутри первого шага):",
+     "en": "Pairs that form the nugget (within the first lag):"
+    },
+    {
+     "ru": "Качество подгонки R²=%.3f ниже %.2g: модель почти ничего не объясняет. Пользоваться её параметрами как есть нельзя - проверьте выбросы и парные близкие точки.",
+     "en": "Fit quality R2=%.3f is below %.2g: the model explains next to nothing. Its parameters cannot be used as they are - check for outliers and pairs of nearby points."
+    },
+    {
+     "ru": "Доля наггета %.0f%% от суммарного порога. Связь на коротких расстояниях не разрешена. Кригинг по такой модели сглаживает оценку до среднего, а на карте дают «бычьи глаза».",
+     "en": "The nugget is %.0f%% of the total sill: correlation at short distances is not resolved. Kriging with such a model smooths the estimate towards the mean and produces bull's eyes on the map."
+    },
+    {
+     "ru": "На первом шаге разброс уже выше общей дисперсии. Описать это можно только наггетом, и кригинг после такого подбора будет возвращать среднее вместо карты.",
+     "en": "At the first lag the spread already exceeds the overall variance. Only a nugget can describe this, and kriging fitted this way returns the mean instead of a map."
+    },
+    {
+     "ru": "  расстояние %.4g, значения %.4g и %.4g, вклад γ=%.4g (x %.6g y %.6g / x %.6g y %.6g)",
+     "en": "  distance %.4g, values %.4g and %.4g, contribution gamma=%.4g (x %.6g y %.6g / x %.6g y %.6g)"
+    },
+    {
+     "ru": "Мало точек (%d): оценка кригинга и вариограммы неустойчива.",
+     "en": "Few points (%d): the kriging and variogram estimates are unstable."
+    },
+    {
+     "ru": "Точек с совпадающими координатами: %d. Частая причина вырожденной матрицы и артефактов. Уберите дубли или усредните пробы в одной точке.",
+     "en": "Points with coinciding coordinates: %d. A common cause of a singular matrix and artefacts. Remove duplicates or average the samples at one location."
+    },
+    {
+     "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
+     "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
+    },
+    {
+     "ru": "== Декластеризация ==",
+     "en": "== Declustering =="
+    },
+    {
+     "ru": "Точек: %d, размер ячейки: %.4g",
+     "en": "Points: %d, cell size: %.4g"
+    },
+    {
+     "ru": "Среднее без весов:          %.4g",
+     "en": "Naive mean:              %.4g"
+    },
+    {
+     "ru": "Декластеризованное среднее: %.4g (%+.2f%%)",
+     "en": "Declustered mean: %.4g (%+.2f%%)"
+    },
+    {
+     "ru": "Это среднее ставьте в «Среднее» простого кригинга, а поле wt - в поле весов SGS.",
+     "en": "Put this mean into the Mean of simple kriging, and the wt field into the SGS weight field."
+    },
+    {
+     "ru": "Слишком мало точек.",
+     "en": "Too few points."
+    },
+    {
+     "ru": "Размер ячейки не задан - взят %.4g.",
+     "en": "Cell size not set - using %.4g."
+    },
+    {
+     "ru": "Z геометрии",
+     "en": "the Z of the geometry"
+    },
+    {
+     "ru": "Недостаточно валидных точек с числовым значением.",
+     "en": "Not enough valid points with a numeric value."
+    },
+    {
+     "ru": "После усреднения совпадающих точек осталось < 2 узлов.",
+     "en": "After averaging coincident points fewer than 2 nodes remain."
+    },
+    {
+     "ru": "Поле «%s» не найдено в слое. Выберите поле значения Z.",
+     "en": "Field \"%s\" not found in the layer. Select a Z value field."
+    },
+    {
+     "ru": "Поле значения не задано, а геометрия слоя без Z. Укажите поле или подайте слой с отметкой в геометрии.",
+     "en": "No value field is given and the geometry of the layer carries no Z. Point at a field or supply a layer with the elevation in its geometry."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s» и %d без геометрии. Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\" and %d without geometry. Read: %d."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s». Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\". Read: %d."
+    },
+    {
+     "ru": "После отсева ураганных проб осталось < 2 точек.",
+     "en": "After outlier removal fewer than 2 points remain."
+    },
+    {
+     "ru": "Совпадающих точек усреднено: %d (осталось %d)",
+     "en": "Coincident points averaged: %d (%d remaining)"
+    },
+    {
+     "ru": "Ураганные пробы: срезано %d значений к [%.4g; %.4g].",
+     "en": "Outliers: %d values capped to [%.4g; %.4g]."
+    },
+    {
+     "ru": "Ураганные пробы: удалено %d точек вне [%.4g; %.4g], осталось %d.",
+     "en": "Outliers: %d points removed outside [%.4g; %.4g]; %d remaining."
+    }
+   ]
+  },
+  {
+   "code": "1.09",
+   "name": "method_crossvalidation",
+   "title": {
+    "ru": "Кросс-валидация метода (LOO)",
+    "en": "Method cross-validation (LOO)"
+   },
+   "group": "1",
+   "help": {
+    "ru": "Скользящий контроль (leave-one-out) для метода гридирования, кригинга или минимальной кривизны. Точка по очереди исключается. Её значение предсказывается методом по остальным и сравнивается с фактом, а по накопленным ошибкам считаются ME (смещение), MAE, RMSE и R. Это объективная оценка метода и способ сравнить методы между собой.\n\nКак в Surfer, проверку можно сузить. Случайная выборка из N точек считается быстрее на больших данных, подобласть отсекается фильтром по охвату и по значению. Буфер исключения убирает из оценки соседей в прямоугольнике вокруг проверяемой точки. Без него в сгущённом кластере оценка просто повторяет ближайшего соседа.\n\nВыходы: слой точек с ошибками и HTML-отчёт (график оценка/факт, гистограмма, метрики). Для минимальной кривизны переоценка идёт с тёплого старта от полного решения, поэтому каждая точка считается быстро. На очень больших выборках всё же уменьшайте N.\n\n**Модели вариограмм** и **Профиль из таблицы** задают вариограмму для кригинга в сравнении. Без таблицы кригинг считается с умолчаниями, а они выбраны безопасными, а не подобранными. Сравнивать с ними другие методы можно, но выводы о самом кригинге по такому прогону делать рано.",
+    "en": "Leave-one-out cross-validation for a gridding method - kriging or minimum curvature. Each validation point is removed in turn, its value is predicted by the method from the rest and compared with the fact. From the errors it computes ME (bias), MAE, RMSE and R - an objective quality measure for the method and a way to compare methods.\n\nLike in Surfer: you can validate a random subset of N points (faster on large data), restrict validation to a subarea (extent and value filters) and set an exclusion buffer - neighbouring points in a rectangle around the validation point are left out of its estimate (needed for dense clusters, otherwise the estimate just repeats a neighbour).\n\nOutputs: an error point layer and an HTML report (estimate-vs-fact plot, histogram, metrics). For minimum curvature each re-estimate warm-starts from the full solution, so a point is fast to compute, but reduce N on very large samples.\n\n**Variogram models** and **Profile from the table** set the variogram for the kriging in the comparison. Without a table the kriging runs on defaults, and those are chosen to be safe rather than fitted: other methods can be compared against them, but conclusions about kriging itself would be premature on such a run."
+   },
+   "params": [
+    {
+     "key": "INPUT",
+     "kind": "points",
+     "label": {
+      "ru": "Точки со значениями",
+      "en": "Points with values"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "ZFIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле значения Z (пусто = из геометрии)",
+      "en": "Value field Z (empty = from the geometry)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true
+    },
+    {
+     "key": "IDFIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле номера скважины",
+      "en": "Well number field"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true
+    },
+    {
+     "key": "WEIGHT_FIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле весов декластеризации (из 1.05)",
+      "en": "Declustering weight field (from 1.05)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "optional": true,
+     "numeric": true,
+     "advanced": true
+    },
+    {
+     "key": "METHOD",
+     "kind": "enum",
+     "label": {
+      "ru": "Метод",
+      "en": "Method"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Кригинг",
+       "en": "Kriging"
+      },
+      {
+       "ru": "Минимальная кривизна",
+       "en": "Minimum curvature"
+      }
+     ]
+    },
+    {
+     "key": "VG_TABLE",
+     "kind": "table",
+     "label": {
+      "ru": "Модели вариограмм (таблица)",
+      "en": "Variogram models (table)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true
+    },
+    {
+     "key": "VG_NAME",
+     "kind": "string",
+     "label": {
+      "ru": "Профиль из таблицы (пусто = умолчания)",
+      "en": "Profile from the table (empty = defaults)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "optional": true
+    },
+    {
+     "key": "N_VALIDATE",
+     "kind": "integer",
+     "label": {
+      "ru": "Проверяемых точек (0 = авто, min(N, 100))",
+      "en": "Points to validate (0 = auto, min(N, 100))"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "minimum": 0
+    },
+    {
+     "key": "EXCL_X",
+     "kind": "number",
+     "label": {
+      "ru": "Буфер исключения по X (0 = выкл.)",
+      "en": "Exclusion buffer in X (0 = off)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0
+    },
+    {
+     "key": "EXCL_Y",
+     "kind": "number",
+     "label": {
+      "ru": "Буфер исключения по Y (0 = выкл.)",
+      "en": "Exclusion buffer in Y (0 = off)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0
+    },
+    {
+     "key": "KTYPE",
+     "kind": "enum",
+     "label": {
+      "ru": "Тип кригинга",
+      "en": "Kriging type"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Ординарный (OK)",
+       "en": "Ordinary (OK)"
+      },
+      {
+       "ru": "Простой (SK)",
+       "en": "Simple (SK)"
+      }
+     ]
+    },
+    {
+     "key": "RADIUS",
+     "kind": "number",
+     "label": {
+      "ru": "Радиус поиска (0 = вся выборка)",
+      "en": "Search radius (0 = whole sample)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0
+    },
+    {
+     "key": "MIN_POINTS",
+     "kind": "integer",
+     "label": {
+      "ru": "Мин. количество точек",
+      "en": "Min. number of points"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1,
+     "minimum": 1
+    },
+    {
+     "key": "MAX_POINTS",
+     "kind": "integer",
+     "label": {
+      "ru": "Макс. количество точек",
+      "en": "Max. number of points"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 24,
+     "minimum": 1,
+     "maximum": 120
+    },
+    {
+     "key": "SKMEAN",
+     "kind": "number",
+     "label": {
+      "ru": "Среднее для простого кригинга",
+      "en": "Mean for simple kriging"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "NUGGET",
+     "kind": "number",
+     "label": {
+      "ru": "Наггет C0",
+      "en": "Nugget C0"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_MODEL",
+     "kind": "enum",
+     "label": {
+      "ru": "Структура 1 · модель",
+      "en": "Structure 1 · model"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Сферическая",
+       "en": "Spherical"
+      },
+      {
+       "ru": "Экспоненциальная",
+       "en": "Exponential"
+      },
+      {
+       "ru": "Гауссова",
+       "en": "Gaussian"
+      },
+      {
+       "ru": "Степенная",
+       "en": "Power"
+      }
+     ],
+     "advanced": true
+    },
+    {
+     "key": "S1_SILL",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · порог/вклад C",
+      "en": "Structure 1 · sill/contribution C"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_RANGE",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · радиус корреляции a (0 = авто)",
+      "en": "Structure 1 · correlation range a (0=auto)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_AZIMUTH",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · азимут, °",
+      "en": "Structure 1 · azimuth, °"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "S1_ANIS",
+     "kind": "number",
+     "label": {
+      "ru": "Структура 1 · анизотропия (малая/главная)",
+      "en": "Structure 1 · anisotropy (minor/major)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "advanced": true
+    },
+    {
+     "key": "VAL_PCT",
+     "kind": "number",
+     "label": {
+      "ru": "Ураганные пробы: перцентиль обрезки, % (0 = выкл.)",
+      "en": "Outliers: clip percentile, % (0 = off)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "maximum": 49.0,
+     "advanced": true
+    },
+    {
+     "key": "VAL_MIN",
+     "kind": "number",
+     "label": {
+      "ru": "Нижняя граница значения (пусто = нет)",
+      "en": "Lower value bound (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "VAL_MAX",
+     "kind": "number",
+     "label": {
+      "ru": "Верхняя граница значения (пусто = нет)",
+      "en": "Upper value bound (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "VAL_CAP",
+     "kind": "bool",
+     "label": {
+      "ru": "Срезать к границе (capping) вместо удаления",
+      "en": "Cap to bound (capping) instead of removing"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false,
+     "advanced": true
+    },
+    {
+     "key": "EXTENT",
+     "kind": "features",
+     "label": {
+      "ru": "Мин. кривизна: слой, по охвату которого строить сетку (пусто = по точкам)",
+      "en": "Min. curvature: layer whose extent the grid covers (empty = by the points)"
+     },
+     "hint": {
+      "ru": "Сетка минимальной кривизны ложится в охват объектов этого слоя.",
+      "en": "The minimum curvature grid covers the extent of the features of this layer."
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "CELL_SIZE",
+     "kind": "number",
+     "label": {
+      "ru": "Мин. кривизна: размер ячейки (0 = авто)",
+      "en": "Min curvature: cell size (0 = auto)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "TENSION",
+     "kind": "number",
+     "label": {
+      "ru": "Мин. кривизна: натяжение (0..1)",
+      "en": "Min curvature: tension (0..1)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "maximum": 1.0,
+     "advanced": true
+    },
+    {
+     "key": "MAX_RESIDUAL",
+     "kind": "number",
+     "label": {
+      "ru": "Мин. кривизна: порог невязки (0 = авто)",
+      "en": "Min curvature: residual threshold (0 = auto)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "advanced": true
+    },
+    {
+     "key": "MAX_ITER",
+     "kind": "integer",
+     "label": {
+      "ru": "Мин. кривизна: максимум итераций",
+      "en": "Min curvature: maximum iterations"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 100000,
+     "minimum": 10,
+     "advanced": true
+    },
+    {
+     "key": "BOUNDARY_TENSION",
+     "kind": "number",
+     "label": {
+      "ru": "Мин. кривизна: натяжение на границе",
+      "en": "Min curvature: boundary tension"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0,
+     "minimum": 0.0,
+     "maximum": 1.0,
+     "advanced": true
+    },
+    {
+     "key": "RELAX",
+     "kind": "number",
+     "label": {
+      "ru": "Мин. кривизна: коэффициент релаксации",
+      "en": "Min curvature: relaxation factor"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.85,
+     "minimum": 0.1,
+     "maximum": 1.99,
+     "advanced": true
+    },
+    {
+     "key": "ANISO",
+     "kind": "number",
+     "label": {
+      "ru": "Мин. кривизна: анизотропия (Y/X)",
+      "en": "Min curvature: anisotropy (Y/X)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "minimum": 0.05,
+     "maximum": 20.0,
+     "advanced": true
+    },
+    {
+     "key": "FILTER_EXTENT",
+     "kind": "features",
+     "label": {
+      "ru": "Проверять только в охвате слоя (пусто = везде)",
+      "en": "Validate only within the extent of a layer (empty = everywhere)"
+     },
+     "hint": {
+      "ru": "Проверяются только точки внутри охвата объектов этого слоя.",
+      "en": "Only points within the extent of the features of this layer are validated."
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "ZMIN",
+     "kind": "number",
+     "label": {
+      "ru": "Проверять при Z не ниже (пусто = нет)",
+      "en": "Validate where Z is at least (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "ZMAX",
+     "kind": "number",
+     "label": {
+      "ru": "Проверять при Z не выше (пусто = нет)",
+      "en": "Validate where Z is at most (empty = none)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "optional": true,
+     "advanced": true
+    },
+    {
+     "key": "SEED",
+     "kind": "integer",
+     "label": {
+      "ru": "Зерно ГСЧ (0 = случайно)",
+      "en": "RNG seed (0 = random)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "minimum": 0,
+     "advanced": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Ошибки кросс-валидации",
+      "en": "Cross-validation errors"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Метод: %s. Проверяем %d из %d точек.",
+     "en": "Method: %s. Validating %d of %d points."
+    },
+    {
+     "ru": "== Кросс-валидация метода (LOO) ==",
+     "en": "== Method cross-validation (LOO) =="
+    },
+    {
+     "ru": "Точек оценено: %d из %d",
+     "en": "Points estimated: %d of %d"
+    },
+    {
+     "ru": "ME (смещение):   %+.4g",
+     "en": "ME (bias):       %+.4g"
+    },
+    {
+     "ru": "RMSE:            %.4g",
+     "en": "RMSE:            %.4g"
+    },
+    {
+     "ru": "R (оценка/факт): %.3f",
+     "en": "R (estimate/actual): %.3f"
+    },
+    {
+     "ru": "После фильтров осталось меньше двух проверяемых точек.",
+     "en": "Fewer than two validation points remain after the filters."
+    },
+    {
+     "ru": "кригинг",
+     "en": "kriging"
+    },
+    {
+     "ru": "минимальная кривизна",
+     "en": "minimum curvature"
+    },
+    {
+     "ru": "Сетка %d x %d, ячейка %.4g.",
+     "en": "Grid %d x %d, cell %.4g."
+    },
+    {
+     "ru": "Слишком мало оценённых точек.",
+     "en": "Too few estimated points."
+    },
+    {
+     "ru": "MSDR:            %.3f",
+     "en": "MSDR:            %.3f"
+    },
+    {
+     "ru": "Метрики взвешены декластеризацией (поле «%s»).",
+     "en": "Metrics weighted by declustering (field \"%s\")."
+    },
+    {
+     "ru": "Прервано.",
+     "en": "Cancelled."
+    },
+    {
+     "ru": "Вариограмма из таблицы, профиль «%s»: наггет %.4g, структур %d. Поля вариограммы в окне при этом не читаются.",
+     "en": "Variogram from the table, profile \"%s\": nugget %.4g, structures %d. The variogram fields in the dialog are not read in this case."
+    },
+    {
+     "ru": "Таблица вариограмм: %s",
+     "en": "Variogram table: %s"
+    },
+    {
+     "ru": "В таблице вариограмм нет ни одной годной модели.",
+     "en": "The variogram table holds no usable model."
+    },
+    {
+     "ru": "Профиль «%s» в таблице не найден. Есть: %s.",
+     "en": "Profile \"%s\" is not in the table. Available: %s."
+    },
+    {
+     "ru": "Задан только наггет (структурный вклад C = 0): кригинг выродится в локальное среднее, поверхность будет почти плоской.",
+     "en": "Only the nugget is set (structural contribution C = 0): kriging degenerates into a local mean and the surface will be almost flat."
+    },
+    {
+     "ru": "Гауссова модель: наггет повышен с %.4g до %.4g для устойчивости (минимум %g%% структурного силла).",
+     "en": "Gaussian model: nugget raised from %.4g to %.4g for stability (minimum %g%% of the structural sill)."
+    },
+    {
+     "ru": "Поле весов содержит пустые или неположительные значения - веса игнорируются.",
+     "en": "The weight field has empty or non-positive values - weights ignored."
+    },
+    {
+     "ru": "В таблице несколько профилей (%s). Укажите, какой брать.",
+     "en": "The table holds several profiles (%s). Say which one to take."
+    },
+    {
+     "ru": "Структура %d: у степенной модели поле «радиус a» это показатель ω (0 < ω < 2), а не расстояние. Задано %.4g, взято %.3f. При показателе в метрах ковариация переполняется, и оценка выходит мусором.",
+     "en": "Structure %d: in the power model the \"range a\" field is the exponent ω (0 < ω < 2), not a distance. %.4g was given, %.3f is used. With an exponent in metres the covariance overflows and the estimate comes out as rubbish."
+    },
+    {
+     "ru": "ME заметно отличается от 0 (%+.3g): возможен систематический сдвиг - проверьте данные и тип кригинга (для простого - заданное среднее).",
+     "en": "ME differs noticeably from 0 (%+.3g): possible systematic shift - check the data and the kriging type (for simple kriging, the specified mean)."
+    },
+    {
+     "ru": "ME близок к 0: систематического смещения нет.",
+     "en": "ME close to 0: no systematic bias."
+    },
+    {
+     "ru": "Итог: параметры можно утверждать - перенесите ту же вариограмму и настройки поиска в «2D Kriging».",
+     "en": "Verdict: the parameters can be accepted - carry the same variogram and search settings into \"2D Kriging\"."
+    },
+    {
+     "ru": "Итог: параметры стоит подправить (см. ниже) и повторить кросс-валидацию перед финальным кригингом.",
+     "en": "Verdict: the parameters should be adjusted (see below) and cross-validation repeated before the final kriging."
+    },
+    {
+     "ru": "Не удалось прочитать поле весов - веса игнорируются.",
+     "en": "Could not read the weight field - weights ignored."
+    },
+    {
+     "ru": "Структура %d: степенная модель - поле «радиус a» это показатель ω (0<ω<2), а не радиус. Задан 0, взят ω=1.",
+     "en": "Structure %d: power model - the \"range a\" field is the exponent ω (0<ω<2), not a range; 0 given, ω=1 used."
+    },
+    {
+     "ru": "MSDR заметно больше 1 (%.3g): карта стандартной ошибки занижена. Умножьте наггет C0 и вклады C на MSDR (радиус и модель не трогайте) и пересчитайте - сами оценки не изменятся, поправится только дисперсия кригинга.",
+     "en": "MSDR noticeably above 1 (%.3g): the standard-error map is understated. Multiply nugget C0 and contributions C by MSDR (leave range and model) and recompute - the estimates won't change, only the kriging variance is corrected."
+    },
+    {
+     "ru": "Низкая корреляция (R=%.2f): модель слабо предсказывает - попробуйте другой радиус, модель или анизотропию. Либо это предел данных (короткомасштабная изменчивость, зоны замещения).",
+     "en": "Low correlation (R=%.2f): the model predicts poorly - try a different range, model or anisotropy; or it is the data's limit (short-range variability, replacement zones)."
+    },
+    {
+     "ru": "Структура %d: показатель степенной модели ω=%.3g вне (0; 2) - приведён к диапазону.",
+     "en": "Structure %d: power-model exponent ω=%.3g outside (0; 2) - clamped to range."
+    },
+    {
+     "ru": "MSDR меньше 1 (%.3g): неопределённость завышена. Разделите наггет C0 и вклады C на MSDR (радиус и модель не трогайте) и пересчитайте - оценки не изменятся.",
+     "en": "MSDR below 1 (%.3g): uncertainty is overstated. Divide nugget C0 and contributions C by MSDR (leave range and model) and recompute - the estimates won't change."
+    },
+    {
+     "ru": "MSDR близок к 1 (%.3g, полоса от 0.7 до 1.3): масштаб вариограммы подобран адекватно.",
+     "en": "MSDR close to 1 (%.3g, band from 0.7 to 1.3): the variogram scale is adequate."
+    },
+    {
+     "ru": "Высокая корреляция (R=%.2f): оценки хорошо согласуются с фактом.",
+     "en": "High correlation (R=%.2f): estimates agree well with the actual values."
+    },
+    {
+     "ru": "Дисперсия данных: %.4g. Ориентир: суммарный силл (C0 + вклады C) задавайте близким к ней. Наггет и силл - в абсолютных единицах дисперсии, не 0-1.",
+     "en": "Data variance: %.4g. Guide: set the total sill (C0 + contributions C) close to it. Nugget and sill are in absolute variance units, not 0-1."
+    },
+    {
+     "ru": "Кросс-валидация по %d точкам…",
+     "en": "Cross-validation over %d points…"
+    },
+    {
+     "ru": "== Кросс-валидация (leave-one-out) ==",
+     "en": "== Cross-validation (leave-one-out) =="
+    },
+    {
+     "ru": "ME (смещение):   %+.4g   (ближе к 0 - лучше)",
+     "en": "ME (bias):       %+.4g   (closer to 0 is better)"
+    },
+    {
+     "ru": "RMSE:            %.4g   (меньше - лучше)",
+     "en": "RMSE:            %.4g   (lower is better)"
+    },
+    {
+     "ru": "MSDR:            %.3f   (ближе к 1 - лучше)",
+     "en": "MSDR:            %.3f   (closer to 1 is better)"
+    },
+    {
+     "ru": "Прервано пользователем.",
+     "en": "Cancelled by the user."
+    },
+    {
+     "ru": "Снятие тренда отключено: точек %d, для степени %d нужно больше %d.",
+     "en": "Detrending off: %d points, degree %d needs more than %d."
+    },
+    {
+     "ru": "Снят тренд степени %d: убрано %.1f%% дисперсии. Тренд переподбирается на каждом шаге LOO по остальным точкам, вариограмму задавайте по остаткам.",
+     "en": "Trend of degree %d removed: %.1f%% of variance taken out. The trend is refit at each LOO step on the remaining points, fit the variogram on the residuals."
+    },
+    {
+     "ru": "== Декластеризация ==",
+     "en": "== Declustering =="
+    },
+    {
+     "ru": "Точек: %d, размер ячейки: %.4g",
+     "en": "Points: %d, cell size: %.4g"
+    },
+    {
+     "ru": "Среднее без весов:          %.4g",
+     "en": "Naive mean:              %.4g"
+    },
+    {
+     "ru": "Декластеризованное среднее: %.4g (%+.2f%%)",
+     "en": "Declustered mean: %.4g (%+.2f%%)"
+    },
+    {
+     "ru": "Это среднее ставьте в «Среднее» простого кригинга, а поле wt - в поле весов SGS.",
+     "en": "Put this mean into the Mean of simple kriging, and the wt field into the SGS weight field."
+    },
+    {
+     "ru": "Слишком мало точек.",
+     "en": "Too few points."
+    },
+    {
+     "ru": "Размер ячейки не задан - взят %.4g.",
+     "en": "Cell size not set - using %.4g."
+    },
+    {
+     "ru": "ПК%d+%02d",
+     "en": "PK%d+%02d"
+    },
+    {
+     "ru": "Не задан охват.",
+     "en": "No extent set."
+    },
+    {
+     "ru": "Оседания: профилей %d, туров %d, точек %d. Мульда до %.1f мм. Разность settle между турами по одним пикетам даёт скорость оседания.",
+     "en": "Subsidence: %d profiles, %d tours, %d points. Trough down to %.1f mm. The settle difference between tours at the same pickets gives the settlement rate."
+    },
+    {
+     "ru": "Электроразведка: профилей %d, точек %d. ρк %.4g..%.4g Ом·м, ЕП %.1f..%.1f мВ.",
+     "en": "Electrical prospecting: %d profiles, %d points. rho_k %.4g..%.4g Ohm*m, SP %.1f..%.1f mV."
+    },
+    {
+     "ru": "Интерполируйте rho_k (2D Kriging или минимальная кривизна) и постройте изолинии - аномалия-пятно оконтурится. Поле rho_true - эталон без шума для проверки точности.",
+     "en": "Interpolate rho_k (2D Kriging or minimum curvature) and build isolines - the spot anomaly will be outlined. The rho_true field is a noise-free reference for accuracy checks."
+    },
+    {
+     "ru": "Z геометрии",
+     "en": "the Z of the geometry"
+    },
+    {
+     "ru": "Недостаточно валидных точек с числовым значением.",
+     "en": "Not enough valid points with a numeric value."
+    },
+    {
+     "ru": "После усреднения совпадающих точек осталось < 2 узлов.",
+     "en": "After averaging coincident points fewer than 2 nodes remain."
+    },
+    {
+     "ru": "Поле «%s» не найдено в слое. Выберите поле значения Z.",
+     "en": "Field \"%s\" not found in the layer. Select a Z value field."
+    },
+    {
+     "ru": "Поле значения не задано, а геометрия слоя без Z. Укажите поле или подайте слой с отметкой в геометрии.",
+     "en": "No value field is given and the geometry of the layer carries no Z. Point at a field or supply a layer with the elevation in its geometry."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s» и %d без геометрии. Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\" and %d without geometry. Read: %d."
+    },
+    {
+     "ru": "Пропущено точек: %d без значения «%s». Прочитано: %d.",
+     "en": "Points skipped: %d without a value for \"%s\". Read: %d."
+    },
+    {
+     "ru": "После отсева ураганных проб осталось < 2 точек.",
+     "en": "After outlier removal fewer than 2 points remain."
+    },
+    {
+     "ru": "Совпадающих точек усреднено: %d (осталось %d)",
+     "en": "Coincident points averaged: %d (%d remaining)"
+    },
+    {
+     "ru": "Ураганные пробы: срезано %d значений к [%.4g; %.4g].",
+     "en": "Outliers: %d values capped to [%.4g; %.4g]."
+    },
+    {
+     "ru": "Ураганные пробы: удалено %d точек вне [%.4g; %.4g], осталось %d.",
+     "en": "Outliers: %d points removed outside [%.4g; %.4g]; %d remaining."
+    },
+    {
+     "ru": "Первый шаг: h=%.4g, пар %d, γ=%.4g при дисперсии данных %.4g.",
+     "en": "First lag: h=%.4g, pairs %d, gamma=%.4g against a data variance of %.4g."
+    },
+    {
+     "ru": "Пары, формирующие наггет (внутри первого шага):",
+     "en": "Pairs that form the nugget (within the first lag):"
+    },
+    {
+     "ru": "Качество подгонки R²=%.3f ниже %.2g: модель почти ничего не объясняет. Пользоваться её параметрами как есть нельзя - проверьте выбросы и парные близкие точки.",
+     "en": "Fit quality R2=%.3f is below %.2g: the model explains next to nothing. Its parameters cannot be used as they are - check for outliers and pairs of nearby points."
+    },
+    {
+     "ru": "Доля наггета %.0f%% от суммарного порога. Связь на коротких расстояниях не разрешена. Кригинг по такой модели сглаживает оценку до среднего, а на карте дают «бычьи глаза».",
+     "en": "The nugget is %.0f%% of the total sill: correlation at short distances is not resolved. Kriging with such a model smooths the estimate towards the mean and produces bull's eyes on the map."
+    },
+    {
+     "ru": "На первом шаге разброс уже выше общей дисперсии. Описать это можно только наггетом, и кригинг после такого подбора будет возвращать среднее вместо карты.",
+     "en": "At the first lag the spread already exceeds the overall variance. Only a nugget can describe this, and kriging fitted this way returns the mean instead of a map."
+    },
+    {
+     "ru": "  расстояние %.4g, значения %.4g и %.4g, вклад γ=%.4g (x %.6g y %.6g / x %.6g y %.6g)",
+     "en": "  distance %.4g, values %.4g and %.4g, contribution gamma=%.4g (x %.6g y %.6g / x %.6g y %.6g)"
+    },
+    {
+     "ru": "Мало точек (%d): оценка кригинга и вариограммы неустойчива.",
+     "en": "Few points (%d): the kriging and variogram estimates are unstable."
+    },
+    {
+     "ru": "Точек с совпадающими координатами: %d. Частая причина вырожденной матрицы и артефактов. Уберите дубли или усредните пробы в одной точке.",
+     "en": "Points with coinciding coordinates: %d. A common cause of a singular matrix and artefacts. Remove duplicates or average the samples at one location."
+    },
+    {
+     "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
+     "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
     }
    ]
   }

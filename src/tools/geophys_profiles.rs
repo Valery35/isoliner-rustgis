@@ -10,13 +10,15 @@
 //! зерне больше нуля данные совпадают с модулем число в число.
 
 use rustgis_kit::Lang;
+use rustgis_kit::catalog::Tool;
 use serde_json::{Value as J, json};
 
 use crate::args;
 use crate::field_format::{plan_for, row};
 use crate::geodemo::{self, Electro, Frame, Subsidence};
 use crate::npy_rng::Rng;
-use crate::report::{Report, ToolError};
+use crate::pyfmt::Arg;
+use crate::report::{Report, ToolError, render};
 use crate::tools::Values;
 
 /// Подписи полей выхода (`FIELD_LABELS` класса), по ним - точность.
@@ -71,14 +73,10 @@ pub fn bbox(items: &[J]) -> Option<(f64, f64, f64, f64)> {
     ))
 }
 
-/// Подпись пикета на языке показа: «ПК5+20», «PK5+20».
-pub fn pk_label(m: f64, lang: Lang) -> String {
+/// Подпись пикета на языке показа по шаблону `messages`: «ПК5+20», «PK5+20».
+pub fn pk_label(tool: &Tool, m: f64, lang: Lang) -> String {
     let (n, plus) = geodemo::pk_parts(m);
-    let prefix = match lang {
-        Lang::Ru => "ПК",
-        Lang::En => "PK",
-    };
-    format!("{prefix}{n}+{plus:02}")
+    render(tool, "ПК%d+%02d", &[Arg::from(n), Arg::from(plus)], lang)
 }
 
 fn min_max(a: &[f64]) -> (f64, f64) {
@@ -147,7 +145,7 @@ pub fn run(v: &Values<'_>, report: &mut Report) -> Result<J, ToolError> {
                 .map(|name| match *name {
                     "profile" => json!(d.profile[i]),
                     "tour" => json!(d.tour[i]),
-                    "pk" => json!(pk_label(d.picket_m[i], v.lang)),
+                    "pk" => json!(pk_label(v.tool, d.picket_m[i], v.lang)),
                     "picket_m" => json!(d.picket_m[i]),
                     "z" => json!(d.z[i]),
                     "rho_k" => json!(d.rho_k[i]),
@@ -212,7 +210,9 @@ mod tests {
 
     #[test]
     fn pk_in_both_languages() {
-        assert_eq!(pk_label(520.0, Lang::Ru), "ПК5+20");
-        assert_eq!(pk_label(5.0, Lang::En), "PK0+05");
+        let cat = rustgis_kit::Catalog::parse(crate::product::TOOLS_JSON).unwrap();
+        let tool = cat.tool("geophysprofiles").unwrap();
+        assert_eq!(pk_label(tool, 520.0, Lang::Ru), "ПК5+20");
+        assert_eq!(pk_label(tool, 5.0, Lang::En), "PK0+05");
     }
 }

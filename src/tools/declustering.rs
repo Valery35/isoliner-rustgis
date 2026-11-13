@@ -149,6 +149,14 @@ pub fn run(v: &Values<'_>, report: &mut Report) -> Result<(J, Stats), ToolError>
             {"name": "wt", "type": "double"},
         ],
         "features": features,
+        // цифры отчёта, как stats прогона модуля; слой их не берёт
+        "stats": {
+            "naive": st.naive,
+            "decl": st.decl,
+            "best_cell": st.best_cell,
+            "sizes": st.sizes,
+            "means": st.means,
+        },
     }});
     Ok((out, st))
 }

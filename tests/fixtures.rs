@@ -82,9 +82,9 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
         values[k] = v.clone();
     }
     let mut report = Report::default();
-    // модуль пишет образцы без QGIS, его язык там английский: так выходят
-    // данные со словами (подпись пикета 1.11). Журнал - русские шаблоны.
-    let Some(got) = tools::run(tool, &values, rustgis_kit::Lang::En, &mut report) else {
+    // модуль пишет образцы на русском: данные со словами (подпись пикета
+    // 1.11) и журнал - по-русски
+    let Some(got) = tools::run(tool, &values, rustgis_kit::Lang::Ru, &mut report) else {
         return false;
     };
     let tag = format!("{name} прогон {n}");
@@ -121,6 +121,28 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
         (Ok(_), Some(want)) => panic!("{tag}: расчёт, у модуля отказ {want}"),
         (Ok(out), None) => {
             let tol = &r["tolerance"];
+            // цифры отчёта прогона (stats) - у выхода OUTPUT расширения
+            if let Some(want) = r["stats"].as_object() {
+                let got = &out["OUTPUT"]["stats"];
+                for (k, w) in want {
+                    let g = &got[k];
+                    match (w.as_array(), g.as_array()) {
+                        (Some(wa), Some(ga)) => {
+                            assert_eq!(ga.len(), wa.len(), "{tag}: stats.{k}");
+                            for (i, (a, b)) in ga.iter().zip(wa).enumerate() {
+                                assert!(
+                                    close(a, b, tol_for(tol, k)),
+                                    "{tag}: stats.{k}[{i}] {a} против {b}"
+                                );
+                            }
+                        }
+                        _ => assert!(
+                            close(g, w, tol_for(tol, k)),
+                            "{tag}: stats.{k} {g} против {w}"
+                        ),
+                    }
+                }
+            }
             for (key, want) in outputs(r) {
                 let o = &out[&key];
                 assert!(o.is_object(), "{tag}: нет выхода {key}");
