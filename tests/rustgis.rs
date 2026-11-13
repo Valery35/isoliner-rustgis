@@ -154,3 +154,48 @@ fn geophys_profiles_through_rustgis() {
     );
     assert_eq!(fb[0]["properties"]["pk"], "PK0+00");
 }
+
+/// 4.13: устья точками в градусах, интервалы и пробы таблицами без
+/// геометрии, как их отдаёт RustGIS. Содержание - по длине перекрытия.
+#[test]
+fn bed_grades_through_rustgis() {
+    let pt = |id: &str, lon: f64| {
+        json!({"type": "Feature", "properties": {"hole_id": id},
+        "geometry": {"type": "Point", "coordinates": [lon, 58.0]}})
+    };
+    let row = |p: J| json!({"type": "Feature", "properties": p, "geometry": null});
+    let collars =
+        json!({"type": "FeatureCollection", "features": [pt("H1", 56.0), pt("H2", 56.01)]});
+    let intervals = json!({"type": "FeatureCollection", "features": [
+        row(json!({"hole_id": "H1", "from": 100.0, "to": 104.0, "code": "КрII"})),
+        row(json!({"hole_id": "H2", "from": 90.0, "to": 92.0, "code": "КрII"})),
+    ]});
+    let chem = json!({"type": "FeatureCollection", "features": [
+        row(json!({"hole_id": "H1", "from": 100.0, "to": 102.0, "kcl": 20.0})),
+        row(json!({"hole_id": "H1", "from": 102.0, "to": 104.0, "kcl": "30,0"})),
+    ]});
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "bed-grades-at-collars", "lang": "ru",
+        "params": {"collar": "Устья", "interval": "Интервалы", "chem": "Пробы",
+                   "components": "kcl", "bed": "КрII"},
+        "layers": {"Устья": collars, "Интервалы": intervals, "Пробы": chem}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let feats = reply["ok"]["layers"][0]["geojson"]["features"]
+        .as_array()
+        .unwrap();
+    assert_eq!(feats.len(), 2, "{reply}");
+    let h1 = feats
+        .iter()
+        .find(|f| f["properties"]["hole_id"] == "H1")
+        .unwrap();
+    assert_eq!(h1["properties"]["kcl"], 25.0);
+    assert_eq!(h1["properties"]["cover"], 1.0);
+    let h2 = feats
+        .iter()
+        .find(|f| f["properties"]["hole_id"] == "H2")
+        .unwrap();
+    assert!(h2["properties"]["kcl"].is_null());
+    assert_eq!(h2["properties"]["n_samp"], 0);
+}

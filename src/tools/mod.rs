@@ -12,11 +12,12 @@ use serde_json::Value as J;
 
 use crate::report::{Report, ToolError};
 
+pub mod bed_grades;
 pub mod declustering;
 pub mod geophys_profiles;
 
 /// Инструменты расширения в порядке панели: имя Processing.
-pub const OFFERED: &[&str] = &["declustering", "geophysprofiles"];
+pub const OFFERED: &[&str] = &["declustering", "geophysprofiles", "bed_grades_at_collars"];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
 /// RustGIS не прислал, берёт `default` из `tools.json`, как окно QGIS.
@@ -99,6 +100,7 @@ pub fn run(
     match tool.name.as_str() {
         "declustering" => Some(declustering::run(&v, report).map(|(out, _)| out)),
         "geophysprofiles" => Some(geophys_profiles::run(&v, report)),
+        "bed_grades_at_collars" => Some(bed_grades::run(&v, report)),
         _ => None,
     }
 }

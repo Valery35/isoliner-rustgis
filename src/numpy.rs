@@ -42,6 +42,23 @@ pub fn sum(a: &[f64]) -> f64 {
     }
 }
 
+/// Встроенная `sum()` Python 3.12 по дробным числам: сложение с
+/// компенсацией Ноймайера (`builtin_sum_impl` CPython).
+pub fn py_sum(a: impl IntoIterator<Item = f64>) -> f64 {
+    let mut s = 0.0f64;
+    let mut c = 0.0f64;
+    for x in a {
+        let t = s + x;
+        if s.abs() >= x.abs() {
+            c += (s - t) + x;
+        } else {
+            c += (x - t) + s;
+        }
+        s = t;
+    }
+    if c != 0.0 && c.is_finite() { s + c } else { s }
+}
+
 /// Среднее как у `np.mean`: сумма делится на длину.
 pub fn mean(a: &[f64]) -> f64 {
     sum(a) / a.len() as f64
