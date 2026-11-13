@@ -161,8 +161,13 @@ pub fn weighted_cv_metrics(
     let mae = s(&|i| wv[i] * err[i].abs()) / ww;
     let rmse = (s(&|i| wv[i] * err[i] * err[i]) / ww).sqrt();
     let mut msdr = f64::NAN;
+    // без дисперсий (минимальная кривизна) MSDR не считается
     let sd: Vec<f64> = var.iter().map(|v| v.max(0.0).sqrt()).collect();
-    let good: Vec<usize> = (0..n).filter(|&i| sd[i] > 0.0).collect();
+    let good: Vec<usize> = if sd.len() == n {
+        (0..n).filter(|&i| sd[i] > 0.0).collect()
+    } else {
+        Vec::new()
+    };
     if !good.is_empty() {
         let num: Vec<f64> = good
             .iter()

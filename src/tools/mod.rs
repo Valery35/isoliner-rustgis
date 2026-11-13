@@ -18,6 +18,7 @@ pub mod cv;
 pub mod declustering;
 pub mod geophys_profiles;
 pub mod line_dimension;
+pub mod method_cv;
 pub mod variogram;
 
 /// Инструменты расширения в порядке панели: имя Processing.
@@ -28,6 +29,7 @@ pub const OFFERED: &[&str] = &[
     "line_dimension",
     "experimental_variogram",
     "crossvalidation",
+    "method_crossvalidation",
 ];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
@@ -127,6 +129,7 @@ pub fn run(
         "line_dimension" => Some(line_dimension::run(&v, report)),
         "experimental_variogram" => Some(variogram::run(&v, report)),
         "crossvalidation" => Some(crossval::run(&v, report)),
+        "method_crossvalidation" => Some(method_cv::run(&v, report)),
         _ => None,
     }
 }

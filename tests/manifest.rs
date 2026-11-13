@@ -6,9 +6,9 @@
 //! `ISOLINER_MANIFEST=1 cargo test` переписывает раздел `tools` и его
 //! строки в `plugin.json`.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use isoliner_rustgis::product::{OPTIONS, TOOLS_JSON};
+use isoliner_rustgis::product::{HIDDEN, OPTIONS, TOOLS_JSON};
 use serde_json::{Value as J, json};
 
 fn path() -> String {
@@ -17,7 +17,7 @@ fn path() -> String {
 
 #[test]
 fn manifest_tools_follow_tools_json() {
-    let kit = rustgis_kit::Catalog::parse(TOOLS_JSON).unwrap();
+    let kit = isoliner_rustgis::product::catalog().unwrap();
     let (tools, ru) = rustgis_kit::manifest::tools_section(&kit, &OPTIONS);
     if std::env::var_os("ISOLINER_MANIFEST").is_some() {
         let text = std::fs::read_to_string(path()).unwrap();
@@ -59,6 +59,15 @@ fn manifest_tools_follow_tools_json() {
                 assert!((1..=64).contains(&ch.len()));
                 assert!(ch.contains(&p["default"]));
             }
+        }
+    }
+    // скрытые поля есть в описании модуля, у каждого есть умолчание
+    let full = rustgis_kit::Catalog::parse(TOOLS_JSON).unwrap();
+    for (name, keys) in HIDDEN {
+        let t = full.tool(name).unwrap();
+        for k in *keys {
+            let p = t.param(k).unwrap_or_else(|| panic!("{name}: нет поля {k}"));
+            assert!(p.default.is_some(), "{name}.{k} без умолчания");
         }
     }
     // версия манифеста - версия крейта

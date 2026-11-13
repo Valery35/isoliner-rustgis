@@ -298,3 +298,32 @@ fn crossvalidation_through_rustgis() {
     );
     assert!(msgs.iter().any(|m| m.starts_with("• Итог:")), "{msgs:?}");
 }
+
+/// 1.09 обоими методами. У минимальной кривизны скрытые в окне RustGIS
+/// настройки решателя берутся по умолчанию модуля.
+#[test]
+fn method_crossvalidation_through_rustgis() {
+    let ask = |method: &str| -> J {
+        let p = Isoliner::new().unwrap();
+        let req = json!({"abi": 1, "kind": "tool", "id": "method-crossvalidation", "lang": "ru",
+            "params": {"input": "Скважины", "zfield": "kcl", "method": method,
+                       "n_validate": 10, "seed": 5, "s1_sill": 20.0, "s1_range": 300.0},
+            "layers": {"Скважины": layer()}});
+        let mut out = Vec::new();
+        rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+        serde_json::from_slice(&out).unwrap()
+    };
+    for method in ["Кригинг", "Минимальная кривизна"] {
+        let reply = ask(method);
+        let feats = reply["ok"]["layers"][0]["geojson"]["features"].as_array();
+        assert!(
+            feats.is_some_and(|f| !f.is_empty() && f.len() <= 10),
+            "{method}: {reply}"
+        );
+        let msgs = reply["ok"]["messages"].as_array().unwrap();
+        assert!(
+            msgs[0].as_str().unwrap().contains("Проверяем 10 из 48"),
+            "{method}: {msgs:?}"
+        );
+    }
+}
