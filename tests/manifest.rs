@@ -70,7 +70,105 @@ fn manifest_tools_follow_tools_json() {
             assert!(p.default.is_some(), "{name}.{k} без умолчания");
         }
     }
+    check_tab(&m, &kit);
     // версия манифеста - версия крейта
     assert_eq!(m["version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(m["id"], "isoliner");
+}
+
+/// Значки, которые RustGIS 0.6.0 знает (`crates/ui-egui/src/icons.rs`);
+/// неизвестное имя рисуется куском пазла.
+const ICONS: &[&str] = &[
+    "about",
+    "chart",
+    "point_layer",
+    "relief",
+    "table",
+    "measure",
+];
+
+/// Группа вкладки по первой цифре кода инструмента модуля.
+fn group_of(code: &str) -> &'static str {
+    match code.split('.').next().unwrap_or("") {
+        "1" => "Kriging",
+        "2" => "Topography",
+        "4" => "Section",
+        "7" => "Fractals",
+        _ => "?",
+    }
+}
+
+/// Записи меню и группы: (группа, запись), меню разворачиваются.
+fn entries<'a>(group: &str, items: &'a [J], out: &mut Vec<(String, &'a J)>, depth: usize) {
+    assert!(depth <= 4, "меню глубже четырёх уровней");
+    for it in items {
+        if let Some(menu) = it["menu"].as_str() {
+            let sub = it["items"].as_array().unwrap();
+            assert!((1..=32).contains(&sub.len()), "меню {menu}: 1-32 записи");
+            out.push((group.to_string(), it));
+            entries(group, sub, out, depth + 1);
+        } else {
+            out.push((group.to_string(), it));
+        }
+    }
+}
+
+/// Вкладка ленты: каждый инструмент расширения ровно один раз и в группе
+/// своего номера, команды и инструменты свои, значки известные, подписи
+/// переведены, пределы RustGIS соблюдены.
+fn check_tab(m: &J, kit: &rustgis_kit::Catalog) {
+    let tab = &m["tab"];
+    let ru = &m["i18n"]["ru"];
+    let label = tab["label"].as_str().unwrap();
+    assert!(!["Home", "Data", "Style", "Analyze", "Plugins"].contains(&label));
+    let groups = tab["groups"].as_array().unwrap();
+    assert!((1..=8).contains(&groups.len()));
+    let commands: Vec<&str> = m["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap())
+        .collect();
+    let mut all = Vec::new();
+    for g in groups {
+        let gl = g["label"].as_str().unwrap();
+        assert!(gl.chars().count() <= 32);
+        assert!(ru[gl].is_string(), "нет перевода группы {gl}");
+        let items = g["items"].as_array().unwrap();
+        assert!((1..=16).contains(&items.len()));
+        entries(gl, items, &mut all, 1);
+    }
+    let mut seen = Vec::new();
+    for (group, it) in &all {
+        if let Some(menu) = it["menu"].as_str() {
+            assert!(ru[menu].is_string(), "нет перевода меню {menu}");
+            if let Some(h) = it["help"].as_str() {
+                assert!(ru[h].is_string(), "нет перевода подсказки {h}");
+            }
+            let icon = it["icon"].as_str().unwrap_or("");
+            assert!(ICONS.contains(&icon), "значок {icon} неизвестен RustGIS");
+            continue;
+        }
+        let id = it.as_str().unwrap();
+        if let Some(tool) = id.strip_prefix("tool:") {
+            let t = kit
+                .by_rg_id(tool)
+                .unwrap_or_else(|| panic!("нет инструмента {tool}"));
+            assert_eq!(group_of(&t.code), group, "{tool} не в своей группе");
+            seen.push(t.name.clone());
+        } else {
+            assert!(commands.contains(&id), "нет команды {id}");
+        }
+    }
+    for name in OPTIONS.offered {
+        let n = seen.iter().filter(|s| s.as_str() == *name).count();
+        assert_eq!(n, 1, "{name} во вкладке {n} раз");
+    }
+    for c in m["commands"].as_array().unwrap() {
+        let icon = c["icon"].as_str().unwrap_or("");
+        assert!(
+            ICONS.contains(&icon),
+            "значок команды {icon} неизвестен RustGIS"
+        );
+    }
 }
