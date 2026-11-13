@@ -360,3 +360,32 @@ fn minkowski_through_rustgis() {
             .starts_with("Размерность Минковского слоя")
     }));
 }
+
+/// 2.08: горизонтали делятся по отметкам на два слоя, поле hold.
+#[test]
+fn contour_split_through_rustgis() {
+    let feats: Vec<J> = (0..10)
+        .map(|k| {
+            let lat = 58.0 + f64::from(k) * 0.0005;
+            json!({"type": "Feature", "properties": {"elev": 100 + 5 * k},
+                "geometry": {"type": "LineString", "coordinates": [[56.0, lat], [56.01, lat]]}})
+        })
+        .collect();
+    let lines = json!({"type": "FeatureCollection", "features": feats});
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "contoursplit", "lang": "ru",
+        "params": {"input": "Горизонтали", "field": "elev", "every": 4},
+        "layers": {"Горизонтали": lines}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let layers = reply["ok"]["layers"].as_array().unwrap();
+    assert_eq!(layers.len(), 2, "{reply}");
+    let n = |k: usize| layers[k]["geojson"]["features"].as_array().unwrap().len();
+    assert_eq!(n(0) + n(1), 10);
+    let check = layers
+        .iter()
+        .find(|l| l["geojson"]["features"][0]["properties"]["hold"] == 1)
+        .unwrap();
+    assert_eq!(check["geojson"]["features"][0]["properties"]["elev"], 120);
+}

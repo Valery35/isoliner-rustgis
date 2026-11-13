@@ -159,6 +159,10 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
                 );
                 assert_eq!(gf.len(), wf.len(), "{tag}: объектов в {key}");
                 for (i, (g, w)) in gf.iter().zip(&wf).enumerate() {
+                    // объект источника - тот же, что у модуля
+                    if !w["source"].is_null() {
+                        assert_eq!(g["source"], w["source"], "{tag}: {key}[{i}].source");
+                    }
                     // values - после округления полей, raw - точные числа
                     for part in ["values", "raw"] {
                         if w[part].is_null() {

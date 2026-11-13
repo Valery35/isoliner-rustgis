@@ -1,7 +1,7 @@
 {
  "format": 1,
  "module": "isoliner",
- "version": "5.13.55",
+ "version": "5.13.56",
  "tools": [
   {
    "code": "1.05",
@@ -2930,6 +2930,123 @@
     {
      "ru": "R² ниже 0.85: степенной закон не выдержан, оценке доверять нельзя (уменьшите K или проверьте данные).",
      "en": "R² below 0.85: the power law does not hold, the estimate cannot be trusted (reduce K or check the data)."
+    }
+   ]
+  },
+  {
+   "code": "2.08",
+   "name": "contoursplit",
+   "title": {
+    "ru": "Разделить горизонтали для проверки",
+    "en": "Split contours for validation"
+   },
+   "group": "2",
+   "help": {
+    "ru": "Делит горизонтали на два набора: по одному строят рельеф, по второму проверяют результат.\n\nДелится не по объектам, а по **отметкам**. Убрать из построения отдельные звенья одной горизонтали бессмысленно. Соседние звенья того же уровня подскажут ответ, и проверка окажется завышенной. Отложенный уровень исчезает целиком, и восстановить его интерполятор может только по соседним уровням, а это и есть предсказание.\n\nКрайние отметки набора всегда остаются в построении. За пределами набора интерполятор экстраполирует, и невязка там измеряла бы не то, ради чего проверка затевалась.\n\nОба выхода получают поле **hold**: 0 для построения, 1 для проверки. Инструмент **Невязка горизонталей против ЦМР** это поле узнаёт сам и печатает две цифры отдельно.\n\nРабочий порядок: разделить, построить рельеф по набору для построения (например **Topo2Raster**), затем измерить невязку по проверочному набору.\n\n**Сдвиг выбора** меняет, какие именно линии уйдут в проверку при том же шаге. При шаге 5 и сдвиге 0 отложится каждая пятая начиная с первой, при сдвиге 2 - начиная с третьей. Это нужно для повторной проверки на другом наборе. Одна выборка может случайно попасть на удачные или неудачные горизонтали, и совпадение двух прогонов с разным сдвигом даёт куда больше уверенности.",
+    "en": "Splits the contours into two sets: one is used to build the relief, the other to check the result.\n\nThe split is by **elevation**, not by feature. Holding out individual pieces of a single contour is pointless: the neighbouring pieces of the same level give the answer away and the check comes out flattering. A held-out level disappears entirely, and the interpolator can only restore it from the neighbouring levels, which is what prediction means.\n\nThe extreme levels of the set always stay in the building set: beyond the range the interpolator extrapolates, and a residual there would measure something other than what the check is for.\n\nBoth outputs get a **hold** field: 0 for building, 1 for validation. The **Contour residuals against the DEM** tool recognises this field by itself and prints the two figures separately.\n\nWorking order: split, build the relief from the building set (with **Topo2Raster** for instance), then measure the residual on the validation set.\n\n**Selection offset** changes which lines go into the check at the same step. With a step of 5 and an offset of 0 every fifth line is set aside starting from the first, with an offset of 2 starting from the third. This is needed for a repeat check on another set: one sample may happen to fall on lucky or unlucky contours, and an agreement between two runs with different offsets carries far more weight."
+   },
+   "params": [
+    {
+     "key": "INPUT",
+     "kind": "lines",
+     "label": {
+      "ru": "Горизонтали (линии)",
+      "en": "Contours (lines)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     }
+    },
+    {
+     "key": "FIELD",
+     "kind": "field",
+     "label": {
+      "ru": "Поле отметки",
+      "en": "Elevation field"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": "",
+     "parent": "INPUT",
+     "numeric": true
+    },
+    {
+     "key": "EVERY",
+     "kind": "integer",
+     "label": {
+      "ru": "Откладывать каждую N-ю отметку",
+      "en": "Hold out every Nth elevation"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 4,
+     "minimum": 2,
+     "maximum": 50
+    },
+    {
+     "key": "OFFSET",
+     "kind": "integer",
+     "label": {
+      "ru": "Сдвиг выбора",
+      "en": "Selection offset"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "minimum": 0,
+     "maximum": 49,
+     "advanced": true
+    },
+    {
+     "key": "OUTPUT_BUILD",
+     "kind": "sink",
+     "label": {
+      "ru": "Горизонтали для построения",
+      "en": "Contours for building"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "line"
+    },
+    {
+     "key": "OUTPUT_CHECK",
+     "kind": "sink",
+     "label": {
+      "ru": "Горизонтали для проверки",
+      "en": "Contours for validation"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "line"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Уровней всего %d: в построение %d, в проверку %d. Объектов %d и %d.",
+     "en": "Levels in total %d: %d for building, %d for validation. Features %d and %d."
+    },
+    {
+     "ru": "В слое нет горизонталей с числовой отметкой.",
+     "en": "The layer holds no contours with a numeric elevation."
+    },
+    {
+     "ru": "Проверочный набор пуст, уровней слишком мало для такого шага.",
+     "en": "The validation set is empty: too few levels for such a step."
+    },
+    {
+     "ru": "Сечение рельефа по набору: %.4g.",
+     "en": "Contour interval from the set: %.4g."
     }
    ]
   }

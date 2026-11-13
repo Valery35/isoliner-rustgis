@@ -13,6 +13,7 @@ use serde_json::Value as J;
 use crate::report::{Report, ToolError};
 
 pub mod bed_grades;
+pub mod contour_split;
 pub mod crossval;
 pub mod cv;
 pub mod declustering;
@@ -32,6 +33,7 @@ pub const OFFERED: &[&str] = &[
     "crossvalidation",
     "method_crossvalidation",
     "minkowski_dimension",
+    "contoursplit",
 ];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
@@ -133,6 +135,7 @@ pub fn run(
         "crossvalidation" => Some(crossval::run(&v, report)),
         "method_crossvalidation" => Some(method_cv::run(&v, report)),
         "minkowski_dimension" => Some(minkowski::run(&v, report)),
+        "contoursplit" => Some(contour_split::run(&v, report)),
         _ => None,
     }
 }
