@@ -19,6 +19,7 @@ pub mod declustering;
 pub mod geophys_profiles;
 pub mod line_dimension;
 pub mod method_cv;
+pub mod minkowski;
 pub mod variogram;
 
 /// Инструменты расширения в порядке панели: имя Processing.
@@ -130,6 +131,7 @@ pub fn run(
         "experimental_variogram" => Some(variogram::run(&v, report)),
         "crossvalidation" => Some(crossval::run(&v, report)),
         "method_crossvalidation" => Some(method_cv::run(&v, report)),
+        "minkowski_dimension" => Some(minkowski::run(&v, report)),
         _ => None,
     }
 }

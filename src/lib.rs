@@ -24,6 +24,7 @@ pub mod product;
 pub mod pyfmt;
 pub mod report;
 pub mod tools;
+pub mod validate;
 pub mod vgtable;
 // константы NumPy как есть, со всеми знаками исходника
 #[allow(clippy::excessive_precision, clippy::unreadable_literal)]
