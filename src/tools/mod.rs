@@ -6,26 +6,30 @@
 //! `grid_isolines/tools/` модуля QGIS. Один файл на инструмент, имя -
 //! имя Processing.
 
+use rustgis_kit::Lang;
 use rustgis_kit::catalog::Tool;
 use serde_json::Value as J;
 
 use crate::report::{Report, ToolError};
 
 pub mod declustering;
+pub mod geophys_profiles;
 
 /// Инструменты расширения в порядке панели: имя Processing.
-pub const OFFERED: &[&str] = &["declustering"];
+pub const OFFERED: &[&str] = &["declustering", "geophysprofiles"];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
 /// RustGIS не прислал, берёт `default` из `tools.json`, как окно QGIS.
 pub struct Values<'a> {
     pub tool: &'a Tool,
     pub values: &'a J,
+    /// Язык показа: им пишутся данные со словами, например подпись пикета.
+    pub lang: Lang,
 }
 
 impl<'a> Values<'a> {
-    pub fn new(tool: &'a Tool, values: &'a J) -> Self {
-        Self { tool, values }
+    pub fn new(tool: &'a Tool, values: &'a J, lang: Lang) -> Self {
+        Self { tool, values, lang }
     }
 
     /// Значение поля, а без него - умолчание описания.
@@ -69,14 +73,32 @@ impl<'a> Values<'a> {
     pub fn layer(&self, key: &str) -> &'a J {
         &self.values[format!("@{key}").as_str()]
     }
+
+    /// Поля всех слоёв на входе: модуль их не округляет на выходе.
+    pub fn input_fields(&self) -> Vec<String> {
+        self.values
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter(|(k, _)| k.starts_with('@'))
+            .flat_map(|(_, l)| l["fields"].as_array().cloned().unwrap_or_default())
+            .filter_map(|f| f.as_str().map(str::to_string))
+            .collect()
+    }
 }
 
 /// Расчёт инструмента по имени: выходы по ключам. `None` - такого
 /// инструмента у расширения нет.
-pub fn run(tool: &Tool, values: &J, report: &mut Report) -> Option<Result<J, ToolError>> {
-    let v = Values::new(tool, values);
+pub fn run(
+    tool: &Tool,
+    values: &J,
+    lang: Lang,
+    report: &mut Report,
+) -> Option<Result<J, ToolError>> {
+    let v = Values::new(tool, values, lang);
     match tool.name.as_str() {
         "declustering" => Some(declustering::run(&v, report).map(|(out, _)| out)),
+        "geophysprofiles" => Some(geophys_profiles::run(&v, report)),
         _ => None,
     }
 }

@@ -58,8 +58,8 @@ impl Product for Isoliner {
 
     fn compute(&self, tool: &Tool, values: &J, lang: Lang) -> Result<(J, Vec<String>), Failure> {
         let mut report = Report::default();
-        let result =
-            tools::run(tool, values, &mut report).ok_or_else(|| Failure::Run(tool.name.clone()))?;
+        let result = tools::run(tool, values, lang, &mut report)
+            .ok_or_else(|| Failure::Run(tool.name.clone()))?;
         let messages = report.lines.iter().map(|l| l.show(tool, lang)).collect();
         match result {
             Ok(out) => Ok((out, messages)),

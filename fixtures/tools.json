@@ -1,7 +1,7 @@
 {
  "format": 1,
  "module": "isoliner",
- "version": "5.13.47",
+ "version": "5.13.49",
  "tools": [
   {
    "code": "1.05",
@@ -239,6 +239,299 @@
     {
      "ru": "Ураганные пробы: удалено %d точек вне [%.4g; %.4g], осталось %d.",
      "en": "Outliers: %d points removed outside [%.4g; %.4g]; %d remaining."
+    }
+   ]
+  },
+  {
+   "code": "1.11",
+   "name": "geophysprofiles",
+   "title": {
+    "ru": "Пример геофизических профилей (демо)",
+    "en": "Example geophysical profiles (demo)"
+   },
+   "group": "1",
+   "help": {
+    "ru": "Создаёт точечный слой геофизических профилей для обучения и проверки инструментов без реальных данных. Профили идут параллельно, точки стоят по пикетам. Режима два, электроразведка и оседания.\n\nЭлектроразведка: кажущееся сопротивление ρк (Ом·м), потенциал естественного поля ЕП (мВ) и вызванная поляризация ВП (мВ/В). Аномалия заложена компактным низкоомным пятном (обводнение или замещение), а не полосой вдоль профилей. Поэтому на каждом профиле она приходится на свой пикет, и по одному профилю её границы не построить. ρк проваливается с фоновых десятков Ом·м до единиц, ЕП даёт отрицательный минимум. Поле rho_k интерполируется 2D Kriging или минимальной кривизной, аномалия оконтуривается изолиниями.\n\nОседания (мульда): оседание (мм) в виде мульды сдвижения над отработанной площадью, по нескольким турам. По одним пикетам можно посчитать разность между турами.\n\nВо всех режимах добавлены отметка z (м) и истинное значение без шума для проверки точности интерполяции против эталона. Диапазоны и количество туров меняются в разделе «Дополнительно».\n\nПоля электроразведки: profile, picket_m, pk, z, rho_k, rho_true, sp, vp. Поля оседаний: profile, picket_m, pk, tour, z, settle, settle_true.\n\n**Шаг пикетов** задаёт расстояние между точками вдоль профиля в метрах. Он же задаёт подробность учебных данных. Двадцать метров это обычная съёмочная сеть. Мельче берите тогда, когда надо посмотреть, как инструменты ведут себя на плотных наблюдениях.",
+    "en": "Creates a point layer of geophysical profiles for learning and testing the tools without real data. Parallel profiles with pickets. Two modes.\n\nElectrical prospecting: apparent resistivity rho_k (Ohm*m), self-potential SP (mV) and induced polarisation IP (mV/V). A low-resistivity anomaly is embedded as a compact spot (water saturation or replacement), not a stripe, so the profiles are not synchronous. rho_k drops from a background of tens of Ohm*m to units, SP shows a negative minimum. The rho_k field is interpolated with 2D Kriging or minimum curvature, the anomaly is outlined by isolines.\n\nSubsidence (trough): settlement (mm) as a subsidence trough over a mined area, across several tours. The difference between tours at the same pickets gives the settlement rate.\n\nIn all modes a surface elevation z (m) and a noise-free true value are added, to check interpolation accuracy against a reference. Ranges and the number of tours are changed under Advanced.\n\nElectrical fields: profile, picket_m, pk, z, rho_k, rho_true, sp, vp. Subsidence fields: profile, picket_m, pk, tour, z, settle, settle_true.\n\n**Picket step** sets the distance between points along a profile in metres. It also sets the detail of the teaching data: twenty metres is an ordinary survey network, going finer makes sense to watch how the tools behave on dense observations."
+   },
+   "params": [
+    {
+     "key": "EXTENT",
+     "kind": "features",
+     "label": {
+      "ru": "Слой, по охвату которого строить",
+      "en": "Layer whose extent to build in"
+     },
+     "hint": {
+      "ru": "Профили ложатся в охват объектов этого слоя.",
+      "en": "The profiles are laid out within the extent of the features of this layer."
+     }
+    },
+    {
+     "key": "MODE",
+     "kind": "enum",
+     "label": {
+      "ru": "Режим",
+      "en": "Mode"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Электроразведка (ρк, ЕП, ВП)",
+       "en": "Electrical prospecting (rho_k, SP, IP)"
+      },
+      {
+       "ru": "Оседания (мульда)",
+       "en": "Subsidence (trough)"
+      }
+     ]
+    },
+    {
+     "key": "N_PROFILES",
+     "kind": "integer",
+     "label": {
+      "ru": "Количество профилей",
+      "en": "Number of profiles"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 4,
+     "minimum": 1,
+     "maximum": 50
+    },
+    {
+     "key": "PICKET_STEP",
+     "kind": "number",
+     "label": {
+      "ru": "Шаг пикетов, м",
+      "en": "Picket step, m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 20.0,
+     "minimum": 0.1
+    },
+    {
+     "key": "RHO_BG",
+     "kind": "number",
+     "label": {
+      "ru": "Фоновое ρк, Ом·м",
+      "en": "Background rho_k, Ohm*m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 60.0,
+     "minimum": 1.0,
+     "maximum": 1000000.0,
+     "advanced": true
+    },
+    {
+     "key": "RHO_MIN",
+     "kind": "number",
+     "label": {
+      "ru": "Минимальное ρк в аномалии, Ом·м",
+      "en": "Minimum rho_k in the anomaly, Ohm*m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 10.0,
+     "minimum": 0.1,
+     "maximum": 1000000.0,
+     "advanced": true
+    },
+    {
+     "key": "SP_AMP",
+     "kind": "number",
+     "label": {
+      "ru": "Амплитуда аномалии ЕП, мВ (обычно < 0)",
+      "en": "SP anomaly amplitude, mV (usually < 0)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": -100.0,
+     "minimum": -10000.0,
+     "maximum": 10000.0,
+     "advanced": true
+    },
+    {
+     "key": "VP_AMP",
+     "kind": "number",
+     "label": {
+      "ru": "Амплитуда аномалии ВП, мВ/В",
+      "en": "IP anomaly amplitude, mV/V"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 15.0,
+     "minimum": 0.0,
+     "maximum": 10000.0,
+     "advanced": true
+    },
+    {
+     "key": "NOISE",
+     "kind": "number",
+     "label": {
+      "ru": "Шум ρк (доля, лог-масштаб)",
+      "en": "rho_k noise (fraction, log scale)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.06,
+     "minimum": 0.0,
+     "maximum": 0.5,
+     "advanced": true
+    },
+    {
+     "key": "SUBS_MAX",
+     "kind": "number",
+     "label": {
+      "ru": "Максимальное оседание (мульда), мм",
+      "en": "Maximum subsidence (trough), mm"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 400.0,
+     "minimum": 1.0,
+     "maximum": 2000.0,
+     "advanced": true
+    },
+    {
+     "key": "Z_BASE",
+     "kind": "number",
+     "label": {
+      "ru": "Отметка поверхности: база, м",
+      "en": "Surface elevation: base, m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 120.0,
+     "minimum": -10000.0,
+     "maximum": 10000.0,
+     "advanced": true
+    },
+    {
+     "key": "Z_AMP",
+     "kind": "number",
+     "label": {
+      "ru": "Отметка поверхности: амплитуда, м",
+      "en": "Surface elevation: amplitude, m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 15.0,
+     "minimum": 0.0,
+     "maximum": 10000.0,
+     "advanced": true
+    },
+    {
+     "key": "N_TOURS",
+     "kind": "integer",
+     "label": {
+      "ru": "Количество туров (для оседаний)",
+      "en": "Number of tours (for subsidence)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 2,
+     "minimum": 1,
+     "maximum": 20,
+     "advanced": true
+    },
+    {
+     "key": "SUBS_SIGN",
+     "kind": "enum",
+     "label": {
+      "ru": "Знак оседания",
+      "en": "Subsidence sign"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "options": [
+      {
+       "ru": "Вниз (отрицательное)",
+       "en": "Down (negative)"
+      },
+      {
+       "ru": "Величина (положительное)",
+       "en": "Magnitude (positive)"
+      }
+     ],
+     "advanced": true
+    },
+    {
+     "key": "SEED",
+     "kind": "integer",
+     "label": {
+      "ru": "Зерно ГСЧ (0 = случайно)",
+      "en": "RNG seed (0 = random)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1,
+     "minimum": 0,
+     "advanced": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Геофизические профили",
+      "en": "Geophysical profiles"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Не задан охват.",
+     "en": "No extent set."
+    },
+    {
+     "ru": "Оседания: профилей %d, туров %d, точек %d. Мульда до %.1f мм. Разность settle между турами по одним пикетам даёт скорость оседания.",
+     "en": "Subsidence: %d profiles, %d tours, %d points. Trough down to %.1f mm. The settle difference between tours at the same pickets gives the settlement rate."
+    },
+    {
+     "ru": "Электроразведка: профилей %d, точек %d. ρк %.4g..%.4g Ом·м, ЕП %.1f..%.1f мВ.",
+     "en": "Electrical prospecting: %d profiles, %d points. rho_k %.4g..%.4g Ohm*m, SP %.1f..%.1f mV."
+    },
+    {
+     "ru": "Интерполируйте rho_k (2D Kriging или минимальная кривизна) и постройте изолинии - аномалия-пятно оконтурится. Поле rho_true - эталон без шума для проверки точности.",
+     "en": "Interpolate rho_k (2D Kriging or minimum curvature) and build isolines - the spot anomaly will be outlined. The rho_true field is a noise-free reference for accuracy checks."
     }
    ]
   }

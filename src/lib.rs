@@ -11,9 +11,14 @@
 
 pub mod declus;
 pub mod field_format;
+pub mod geodemo;
+pub mod npy_rng;
 pub mod numpy;
 pub mod points;
 pub mod product;
 pub mod pyfmt;
 pub mod report;
 pub mod tools;
+// константы NumPy как есть, со всеми знаками исходника
+#[allow(clippy::excessive_precision, clippy::unreadable_literal)]
+pub mod ziggurat;

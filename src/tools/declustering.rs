@@ -14,7 +14,10 @@ use serde_json::{Value as J, json};
 
 use crate::args;
 use crate::declus;
-use crate::field_format::{Spec, round_value};
+use crate::field_format::{plan_for, row};
+
+/// Подписи полей выхода (`FIELD_LABELS` класса), по ним - точность.
+pub const FIELD_LABELS: &[(&str, &str)] = &[("wt", "Вес декластеризации")];
 use crate::points::{Outliers, read_points};
 use crate::report::{Report, ToolError};
 use crate::tools::Values;
@@ -124,21 +127,25 @@ pub fn run(v: &Values<'_>, report: &mut Report) -> Result<(J, Stats), ToolError>
         "Это среднее ставьте в «Среднее» простого кригинга, а поле wt - в поле весов SGS.",
         args![],
     );
-    // поле значения - данные пользователя, модуль его не округляет,
-    // вес - четыре значащие цифры (подпись «Вес декластеризации»)
+    // у поля значения подписи нет, модуль его не округляет,
+    // вес - по подписи «Вес декластеризации»
+    let vname = value_field(&zfield);
+    let names = [vname.as_str(), "wt"];
+    let plan = plan_for(&names, FIELD_LABELS, &[], &v.input_fields());
     let features: Vec<J> = (0..n)
         .map(|i| {
+            let (values, raw) = row(&names, vec![json!(p.vs[i]), json!(st.weights[i])], &plan);
             json!({
                 "geometry": {"xyz": [p.xs[i], p.ys[i], null]},
-                "values": [p.vs[i], round_value(st.weights[i], Spec::Significant(4))],
-                "raw": [p.vs[i], st.weights[i]],
+                "values": values,
+                "raw": raw,
             })
         })
         .collect();
     let out = json!({"OUTPUT": {
         "geometry": "point",
         "fields": [
-            {"name": value_field(&zfield), "type": "double"},
+            {"name": vname, "type": "double"},
             {"name": "wt", "type": "double"},
         ],
         "features": features,

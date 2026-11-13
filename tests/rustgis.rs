@@ -112,3 +112,45 @@ fn refusal_without_value_field() {
     let e = reply["error"].as_str().unwrap_or_default();
     assert!(e.contains("геометрия слоя без Z"), "{reply}");
 }
+
+/// 1.11 по охвату слоя-полигона в градусах: точки профилей ложатся
+/// внутрь охвата, подпись пикета на языке запроса, зерно повторяет данные.
+#[test]
+fn geophys_profiles_through_rustgis() {
+    let area = json!({"type": "FeatureCollection", "features": [{"type": "Feature",
+        "properties": {"name": "участок"},
+        "geometry": {"type": "Polygon", "coordinates": [[[56.0, 58.0], [56.02, 58.0],
+            [56.02, 58.01], [56.0, 58.01], [56.0, 58.0]]]}}]});
+    let run = |lang: &str, seed: i64| -> J {
+        let p = Isoliner::new().unwrap();
+        let req = json!({"abi": 1, "kind": "tool", "id": "geophysprofiles", "lang": lang,
+            "params": {"extent": "Участок", "seed": seed}, "layers": {"Участок": area}});
+        let mut out = Vec::new();
+        rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+        serde_json::from_slice(&out).unwrap()
+    };
+    let a = run("ru", 7);
+    let layer = &a["ok"]["layers"][0];
+    assert_eq!(layer["name"], "Геофизические профили", "{a}");
+    let feats = layer["geojson"]["features"].as_array().unwrap();
+    assert!(!feats.is_empty());
+    assert_eq!(feats[0]["properties"]["pk"], "ПК0+00");
+    for f in feats {
+        let c = &f["geometry"]["coordinates"];
+        let (lon, lat) = (c[0].as_f64().unwrap(), c[1].as_f64().unwrap());
+        assert!(
+            (56.0..=56.02).contains(&lon) && (58.0..=58.01).contains(&lat),
+            "{c}"
+        );
+    }
+    let msg = a["ok"]["messages"][0].as_str().unwrap_or_default();
+    assert!(msg.starts_with("Электроразведка: профилей 4"), "{msg}");
+    // то же зерно - те же данные, другой язык - другая подпись пикета
+    let b = run("en", 7);
+    let fb = &b["ok"]["layers"][0]["geojson"]["features"];
+    assert_eq!(
+        fb[0]["properties"]["rho_k"],
+        feats[0]["properties"]["rho_k"]
+    );
+    assert_eq!(fb[0]["properties"]["pk"], "PK0+00");
+}

@@ -82,7 +82,9 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
         values[k] = v.clone();
     }
     let mut report = Report::default();
-    let Some(got) = tools::run(tool, &values, &mut report) else {
+    // модуль пишет образцы без QGIS, его язык там английский: так выходят
+    // данные со словами (подпись пикета 1.11). Журнал - русские шаблоны.
+    let Some(got) = tools::run(tool, &values, rustgis_kit::Lang::En, &mut report) else {
         return false;
     };
     let tag = format!("{name} прогон {n}");

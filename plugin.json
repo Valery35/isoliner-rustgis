@@ -2,7 +2,7 @@
   "id": "isoliner",
   "name": "Isoliner",
   "version": "0.1.0",
-  "description": "Isoliner tools for RustGIS. They compute as in the Isoliner plugin for QGIS and take the same fields. The first tool is 1.05 Declustering.",
+  "description": "Isoliner tools for RustGIS. They compute as in the Isoliner plugin for QGIS and take the same fields. Tools 1.05 Declustering and 1.11 Example geophysical profiles.",
   "author": "Inform++ LLC",
   "license": "Apache-2.0",
   "runtime": "process",
@@ -13,10 +13,33 @@
     { "id": "about", "label": "About\nIsoliner", "help": "About the extension with its version and the number of tools.", "icon": "info", "params": "{} (answers the title, the version of the extension and of the QGIS plugin it follows, the number of tools)" }
   ],
   "tools": [
-    {"id":"declustering","name":"1.05 Declustering (weights)","params":[{"kind":"pointLayer","label":"Points with values","name":"input","required":true},{"kind":"numericField","label":"Value field Z (empty = from the geometry)","name":"zfield"},{"choices":["Auto (size sweep)","Manual size"],"default":"Auto (size sweep)","kind":"choice","label":"Cell size","name":"mode"},{"default":0.0,"kind":"number","label":"Cell size for manual mode","name":"cell_size"},{"choices":["Minimum mean (clusters in the rich)","Maximum mean (clusters in the poor)"],"default":"Minimum mean (clusters in the rich)","kind":"choice","label":"Sweep objective","name":"objective"},{"default":24,"kind":"number","label":"Number of sizes in the sweep","name":"ncell"},{"default":1.0,"kind":"number","label":"Cell Y/X ratio","name":"aspect"},{"default":4,"kind":"number","label":"Grid-origin offsets (averaging)","name":"noff"}],"summary":"Cell declustering (a port of GSLIB declus).","toolbox":"Isoliner"}
+    {"id":"declustering","name":"1.05 Declustering (weights)","params":[{"kind":"pointLayer","label":"Points with values","name":"input","required":true},{"kind":"numericField","label":"Value field Z (empty = from the geometry)","name":"zfield"},{"choices":["Auto (size sweep)","Manual size"],"default":"Auto (size sweep)","kind":"choice","label":"Cell size","name":"mode"},{"default":0.0,"kind":"number","label":"Cell size for manual mode","name":"cell_size"},{"choices":["Minimum mean (clusters in the rich)","Maximum mean (clusters in the poor)"],"default":"Minimum mean (clusters in the rich)","kind":"choice","label":"Sweep objective","name":"objective"},{"default":24,"kind":"number","label":"Number of sizes in the sweep","name":"ncell"},{"default":1.0,"kind":"number","label":"Cell Y/X ratio","name":"aspect"},{"default":4,"kind":"number","label":"Grid-origin offsets (averaging)","name":"noff"}],"summary":"Cell declustering (a port of GSLIB declus).","toolbox":"Isoliner"},
+    {"id":"geophysprofiles","name":"1.11 Example geophysical profiles (demo)","params":[{"help":"The profiles are laid out within the extent of the features of this layer.","kind":"vectorLayer","label":"Layer whose extent to build in","name":"extent","required":true},{"choices":["Electrical prospecting (rho_k, SP, IP)","Subsidence (trough)"],"default":"Electrical prospecting (rho_k, SP, IP)","kind":"choice","label":"Mode","name":"mode"},{"default":4,"kind":"number","label":"Number of profiles","name":"n_profiles"},{"default":20.0,"kind":"number","label":"Picket step, m","name":"picket_step"},{"default":60.0,"kind":"number","label":"Background rho_k, Ohm*m","name":"rho_bg"},{"default":10.0,"kind":"number","label":"Minimum rho_k in the anomaly, Ohm*m","name":"rho_min"},{"default":-100.0,"kind":"number","label":"SP anomaly amplitude, mV (usually < 0)","name":"sp_amp"},{"default":15.0,"kind":"number","label":"IP anomaly amplitude, mV/V","name":"vp_amp"},{"default":0.06,"kind":"number","label":"rho_k noise (fraction, log scale)","name":"noise"},{"default":400.0,"kind":"number","label":"Maximum subsidence (trough), mm","name":"subs_max"},{"default":120.0,"kind":"number","label":"Surface elevation: base, m","name":"z_base"},{"default":15.0,"kind":"number","label":"Surface elevation: amplitude, m","name":"z_amp"},{"default":2,"kind":"number","label":"Number of tours (for subsidence)","name":"n_tours"},{"choices":["Down (negative)","Magnitude (positive)"],"default":"Down (negative)","kind":"choice","label":"Subsidence sign","name":"subs_sign"},{"default":1,"kind":"number","label":"RNG seed (0 = random)","name":"seed"}],"summary":"Creates a point layer of geophysical profiles for learning and testing the tools without real data.","toolbox":"Isoliner"}
   ],
   "i18n": {
     "ru": {
+      "1.11 Example geophysical profiles (demo)": "1.11 Пример геофизических профилей (демо)",
+      "Background rho_k, Ohm*m": "Фоновое ρк, Ом·м",
+      "Creates a point layer of geophysical profiles for learning and testing the tools without real data.": "Создаёт точечный слой геофизических профилей для обучения и проверки инструментов без реальных данных.",
+      "Down (negative)": "Вниз (отрицательное)",
+      "Electrical prospecting (rho_k, SP, IP)": "Электроразведка (ρк, ЕП, ВП)",
+      "IP anomaly amplitude, mV/V": "Амплитуда аномалии ВП, мВ/В",
+      "Layer whose extent to build in": "Слой, по охвату которого строить",
+      "Magnitude (positive)": "Величина (положительное)",
+      "Maximum subsidence (trough), mm": "Максимальное оседание (мульда), мм",
+      "Minimum rho_k in the anomaly, Ohm*m": "Минимальное ρк в аномалии, Ом·м",
+      "Mode": "Режим",
+      "Number of profiles": "Количество профилей",
+      "Number of tours (for subsidence)": "Количество туров (для оседаний)",
+      "Picket step, m": "Шаг пикетов, м",
+      "RNG seed (0 = random)": "Зерно ГСЧ (0 = случайно)",
+      "SP anomaly amplitude, mV (usually < 0)": "Амплитуда аномалии ЕП, мВ (обычно < 0)",
+      "Subsidence (trough)": "Оседания (мульда)",
+      "Subsidence sign": "Знак оседания",
+      "Surface elevation: amplitude, m": "Отметка поверхности: амплитуда, м",
+      "Surface elevation: base, m": "Отметка поверхности: база, м",
+      "The profiles are laid out within the extent of the features of this layer.": "Профили ложатся в охват объектов этого слоя.",
+      "rho_k noise (fraction, log scale)": "Шум ρк (доля, лог-масштаб)",
       "Cell declustering (a port of GSLIB declus).": "Когда одни блоки разбурены плотнее других, среднее и гистограмма по всем пробам смещаются в сторону переразведанных участков.",
       "1.05 Declustering (weights)": "1.05 Декластеризация (веса)",
       "Auto (size sweep)": "Авто (перебор размеров)",
@@ -32,7 +55,7 @@
       "Points with values": "Точки со значениями",
       "Sweep objective": "Цель перебора",
       "Value field Z (empty = from the geometry)": "Поле значения Z (пусто = из геометрии)",
-      "Isoliner tools for RustGIS. They compute as in the Isoliner plugin for QGIS and take the same fields. The first tool is 1.05 Declustering.": "Инструменты Isoliner для RustGIS. Они считают так же, как модуль Isoliner для QGIS, и принимают те же поля. Первый инструмент - 1.05 Декластеризация.",
+      "Isoliner tools for RustGIS. They compute as in the Isoliner plugin for QGIS and take the same fields. Tools 1.05 Declustering and 1.11 Example geophysical profiles.": "Инструменты Isoliner для RustGIS. Они считают так же, как модуль Isoliner для QGIS, и принимают те же поля. В расширении есть 1.05 Декластеризация и 1.11 Пример геофизических профилей.",
       "About\nIsoliner": "О расширении\nIsoliner",
       "About the extension with its version and the number of tools.": "О расширении, его версия и количество инструментов."
     }
