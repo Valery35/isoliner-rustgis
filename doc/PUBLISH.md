@@ -22,5 +22,6 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 | LinkedIn | https://www.linkedin.com/feed/update/urn:li:activity:7527856309895966720/ |
 | Facebook | https://www.facebook.com/valery35/posts/pfbid0VyQxmGeZNUJz6Ruqy5rEwjXPA7FG9Nm3NC85k7MFfd1E6Px4a7BjLrmtmC5SBrcUl |
 | ВК | https://vk.ru/wall-241229428_82 - запись на стене, статьи нет |
+| Каталог RustGIS | заявка https://github.com/opengeos/rustgis-plugins/pull/66 (`registry/isoliner.json`, категории Analysis, Vector, Example), по слову автора «Подавай 0.1.2». В пакете 0.1.2 нет `homepage`, поле войдёт в следующую версию |
 | Сайт informpp.ru | не обновлялся |
 | RustGIS автора | стоит 0.1.1, 0.1.2 не ставилась |
