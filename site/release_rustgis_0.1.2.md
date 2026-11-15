@@ -18,7 +18,7 @@ Isoliner для RustGIS 0.1.2 - первый выпуск расширения.
 2. В RustGIS открыть вкладку «Модули» и нажать «Установить из файла».
 3. Выбрать пакет и подтвердить установку. Прежнюю версию пакет заменяет.
 
-Работает с RustGIS 0.5.0 и новее, Windows, проверено в 0.6.0.
+Нужен RustGIS 0.6.0 и новее, Windows.
 
 ---
 
@@ -42,4 +42,4 @@ Computation runs in UTM zone metres, the Z value is taken from a field. The plug
 2. In RustGIS open the Plugins tab and press Install from file.
 3. Choose the package and confirm. The package replaces the previous version.
 
-Works with RustGIS 0.5.0 or later, Windows, checked in 0.6.0.
+Needs RustGIS 0.6.0 or later, Windows.

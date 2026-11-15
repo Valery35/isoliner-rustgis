@@ -8,7 +8,7 @@
   "runtime": "process",
   "session": true,
   "run": { "windows": ["bin/isoliner-rustgis.exe", "rustgis-plugin"] },
-  "minRustgisVersion": "0.5.0",
+  "minRustgisVersion": "0.6.0",
   "commands": [
     { "id": "about", "label": "About\nIsoliner", "help": "About the extension with its version and the number of tools.", "icon": "about", "params": "{} (answers the title, the version of the extension and of the QGIS plugin it follows, the number of tools)" }
   ],
