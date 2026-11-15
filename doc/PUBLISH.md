@@ -16,7 +16,7 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 |---|---|
 | GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.2 - пакет `isoliner-0.1.2.rgplugin`, SHA-256 b45a2508...c652, скачанный с GitHub совпал с местным |
 | Dropbox | `ИИ\Isoliner\isoliner-0.1.2.rgplugin`, прежних пакетов расширения там не было |
-| Telegram | не отправлено - процесс «Telegram о выпуске» сообщил, что секретов TELEGRAM_BOT_TOKEN и TELEGRAM_OWNER нет. После того как автор их заведёт, процесс перезапускается вручную по метке |
+| Telegram | первый запуск процесса «Telegram о выпуске» прошёл без секретов. Автор завёл их, и 16.11 запуск 43767555057 перезапущен (попытка 2), Telegram ответил ok. Ручной запуск по метке GitHub отклонил («Workflow could not be run»), поэтому перезапускался запуск по выпуску. Пост в канал публикует нажатие автора |
 | Mastodon | https://en.osm.town/@Vaery35/117622749668864068 |
 | X | https://x.com/Valery35/status/2122090445480292402 |
 | LinkedIn | https://www.linkedin.com/feed/update/urn:li:activity:7527856309895966720/ |
