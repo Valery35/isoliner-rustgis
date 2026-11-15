@@ -56,6 +56,14 @@ fn outputs(r: &J) -> Vec<(String, J)> {
         .collect()
 }
 
+/// Числа вложенных массивов подряд (NaN модуля в JSON - null).
+fn flat(v: &J, out: &mut Vec<J>) {
+    match v {
+        J::Array(a) => a.iter().for_each(|x| flat(x, out)),
+        x => out.push(x.clone()),
+    }
+}
+
 fn field_names(o: &J) -> Vec<String> {
     o["fields"]
         .as_array()
@@ -180,6 +188,22 @@ fn check_run(cat: &rustgis_kit::Catalog, r: &J, n: usize) -> bool {
                             assert!(
                                 close(a, b, tol_for(tol, field)),
                                 "{tag}: {key}[{i}].{part}.{field} {a} против {b}"
+                            );
+                        }
+                    }
+                    // вершины линий и колец полигонов
+                    for gk in ["points", "rings", "polygons"] {
+                        if w[gk].is_null() {
+                            continue;
+                        }
+                        let (mut a, mut b) = (Vec::new(), Vec::new());
+                        flat(&g["geometry"][gk], &mut a);
+                        flat(&w[gk], &mut b);
+                        assert_eq!(a.len(), b.len(), "{tag}: {key}[{i}].{gk} вершин");
+                        for (c, (x, y)) in a.iter().zip(&b).enumerate() {
+                            assert!(
+                                close(x, y, tol_for(tol, "xyz")),
+                                "{tag}: {key}[{i}].{gk}[{c}] {x} против {y}"
                             );
                         }
                     }

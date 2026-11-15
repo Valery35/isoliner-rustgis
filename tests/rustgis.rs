@@ -389,3 +389,30 @@ fn contour_split_through_rustgis() {
         .unwrap();
     assert_eq!(check["geojson"]["features"][0]["properties"]["elev"], 120);
 }
+
+/// 3.08: три слоя - точки, линии и полигоны, суммарная масса 1000.
+#[test]
+fn density_demo_through_rustgis() {
+    let area = json!({"type": "FeatureCollection", "features": [{"type": "Feature",
+        "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[56.0, 58.0],
+        [56.02, 58.0], [56.02, 58.01], [56.0, 58.01], [56.0, 58.0]]]}}]});
+    let p = Isoliner::new().unwrap();
+    let req = json!({"abi": 1, "kind": "tool", "id": "densitydemo", "lang": "ru",
+        "params": {"extent": "Участок", "seed": 3}, "layers": {"Участок": area}});
+    let mut out = Vec::new();
+    rustgis_kit::serve(&p, format!("{req}\n").as_bytes(), &mut out).unwrap();
+    let reply: J = serde_json::from_slice(&out).unwrap();
+    let layers = reply["ok"]["layers"].as_array().unwrap();
+    assert_eq!(layers.len(), 3, "{reply}");
+    let mut kinds = Vec::new();
+    let mut mass = 0.0;
+    for l in layers {
+        for f in l["geojson"]["features"].as_array().unwrap() {
+            kinds.push(f["geometry"]["type"].as_str().unwrap().to_string());
+            mass += f["properties"]["mass"].as_f64().unwrap();
+        }
+    }
+    assert!(kinds.iter().any(|k| k.contains("Polygon")), "{kinds:?}");
+    assert!(kinds.iter().any(|k| k.contains("LineString")), "{kinds:?}");
+    assert!((mass - 1000.0).abs() < 1e-6, "{mass}");
+}

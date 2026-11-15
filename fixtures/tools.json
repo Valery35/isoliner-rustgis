@@ -1,7 +1,7 @@
 {
  "format": 1,
  "module": "isoliner",
- "version": "5.13.56",
+ "version": "5.13.60",
  "tools": [
   {
    "code": "1.05",
@@ -3047,6 +3047,737 @@
     {
      "ru": "Сечение рельефа по набору: %.4g.",
      "en": "Contour interval from the set: %.4g."
+    }
+   ]
+  },
+  {
+   "code": "1.10",
+   "name": "examplewells",
+   "title": {
+    "ru": "Пример скважин (демо)",
+    "en": "Example wells (demo)"
+   },
+   "group": "1",
+   "help": {
+    "ru": "Создаёт точечный слой скважин со случайными координатами в пределах области. Значение абстрактного компонента (X, %) раскладывается по площади не случайно, а с пространственной структурой, поэтому набор годится для обучения и для проверки инструментов без реальных данных.\n\nОбласть задаётся экстентом (можно по слою, по холсту карты, вручную координатами или рисованием). «Гладкость» задаёт радиус корреляции как долю охвата (больше - крупнее «пятна»). «Доля наггета» задаёт долю дисперсии, приходящуюся на короткомасштабный шум (чем больше, тем меньше предсказуемость). В Журнал выводится стартовая вариограмма - её уточняют кросс-валидацией.\n\nПоля результата: номер скважины, абсолютная отметка кровли (roof), мощность (thick) и содержание X. Диапазоны кровли и мощности по умолчанию близки к реальным калийным данным, их можно изменить в разделе «Дополнительно».\n\nНеобязательные галки добавляют поля для смежных инструментов: напор (head) для градиента потока и категориальный минтип для индикаторного кригинга. Галка K и T добавляет напор и лог-нормальные поля K (коэф. фильтрации) и T = K·мощность для «Удельного расхода (Дарси)». Включённый вывод «Поверхность дрейфа» даёт растр сторонней поверхности и поле dz, линейно с ней связанное, для кригинга с внешним дрейфом.\n\n**Амплитуда разлома** задаёт учебный разрыв. Генератор проводит линию поперёк площади, не доводя её до краёв, и прибавляет амплитуду к значению у всех скважин по одну сторону. Прибавка действует только в пределах длины линии, поэтому выше её конца обе стороны одинаковы и поверхность там обязана смыкаться. Линия выдаётся отдельным выходом **Разлом (демо)** и подаётся дальше в 1.01, 1.02 и 1.04.\n\nПри нуле линия всё равно выдаётся, но сдвига нет. Разлом есть геометрически и отсутствует по значениям. Это удобный контрольный прогон - барьер работает, а рвать нечего.\n\nДля проверки барьера берите амплитуду заметно больше радиуса корреляции, тогда скачок очевиден. Для проверки коридора в 1.04 хватит амплитуды порядка сечения изолиний.\n\nЗначение амплитуды пишется в атрибут throw выходного слоя разлома. Атрибут справочный. Инструменты его не читают, барьер у них геометрический и о величине смещения не знает.\n\n**Добавить поле напора** дописывает к скважинам поле head с напором подземных вод, связанным с рельефом кровли. Оно нужно инструменту 3.04, который считает гидравлический градиент и направление потока. Без этого поля проверить его не на чем.",
+    "en": "Creates a point \"wells\" layer with random coordinates within an area and a value of an abstract component (X, %), with a spatial structure. Intended for learning and testing the tools without real data.\n\nThe area is set by an extent (by layer, by map canvas, manually by coordinates or by drawing). \"Smoothness\" sets the correlation range as a fraction of the extent (larger - bigger \"patches\"). \"Nugget fraction\" sets the share of variance due to short-range noise (larger - less predictable). The Log prints the starting variogram - refine it with cross-validation.\n\nResult fields: well number, absolute roof elevation (roof), thickness (thick) and grade X. The default roof and thickness ranges are close to real potash data; you can change them under \"Advanced\".\n\nOptional checkboxes add fields for the neighbouring tools: head for the flow gradient and a categorical mineral type for indicator kriging. The K and T checkbox adds head and log-normal K (conductivity) and T = K·thickness fields for the 'Specific discharge (Darcy law)' tool. Enabling the \"Drift surface\" output gives a raster of a secondary surface and a dz field linearly related to it, for external drift kriging.\n\n**Fault throw** sets a teaching break. The generator draws a line across the area without bringing it to the edges and adds the throw to the value at every well on one side. The addition acts only within the length of the line, so above its end both sides are equal and the surface must close up there. The line is produced as a separate output **Fault (demo)** and is fed further into 1.01, 1.02 and 1.04.\n\nAt zero the line is still produced but there is no shift: the fault exists geometrically and is absent in the values. That is a convenient control run - the barrier works and there is nothing to tear.\n\nTo check the barrier take a throw noticeably larger than the correlation range, then the jump is obvious. To check the corridor in 1.04 a throw of the order of the contour interval is enough.\n\nThe value of the throw is written into the throw attribute of the output fault layer. The attribute is for reference: the tools do not read it, their barrier is purely geometric and knows nothing of the size of the displacement.\n\n**Add a head field** appends a head field to the wells with a groundwater head tied to the relief of the roof. It is needed by tool 3.04, which computes the hydraulic gradient and the direction of flow: without this field there is nothing to test it on."
+   },
+   "params": [
+    {
+     "key": "EXTENT",
+     "kind": "features",
+     "label": {
+      "ru": "Слой, по охвату которого строить",
+      "en": "Layer whose extent to build in"
+     },
+     "hint": {
+      "ru": "Скважины ложатся в охват объектов этого слоя.",
+      "en": "The wells are placed within the extent of the features of this layer."
+     }
+    },
+    {
+     "key": "N_POINTS",
+     "kind": "integer",
+     "label": {
+      "ru": "Количество скважин",
+      "en": "Number of wells"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 300,
+     "minimum": 5,
+     "maximum": 200000
+    },
+    {
+     "key": "VMIN",
+     "kind": "number",
+     "label": {
+      "ru": "Минимум значения X",
+      "en": "Minimum of value X"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0
+    },
+    {
+     "key": "VMAX",
+     "kind": "number",
+     "label": {
+      "ru": "Максимум значения X",
+      "en": "Maximum of value X"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 50.0
+    },
+    {
+     "key": "SMOOTH",
+     "kind": "number",
+     "label": {
+      "ru": "Гладкость (доля охвата)",
+      "en": "Smoothness (fraction of extent)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.15,
+     "minimum": 0.02,
+     "maximum": 0.6
+    },
+    {
+     "key": "ROOF_MIN",
+     "kind": "number",
+     "label": {
+      "ru": "Кровля: минимум, м (абс.)",
+      "en": "Roof: minimum, m (abs.)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": -250.0,
+     "advanced": true
+    },
+    {
+     "key": "ROOF_MAX",
+     "kind": "number",
+     "label": {
+      "ru": "Кровля: максимум, м (абс.)",
+      "en": "Roof: maximum, m (abs.)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": -50.0,
+     "advanced": true
+    },
+    {
+     "key": "THICK_MIN",
+     "kind": "number",
+     "label": {
+      "ru": "Мощность: минимум, м",
+      "en": "Thickness: minimum, m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1.0,
+     "advanced": true
+    },
+    {
+     "key": "THICK_MAX",
+     "kind": "number",
+     "label": {
+      "ru": "Мощность: максимум, м",
+      "en": "Thickness: maximum, m"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 8.0,
+     "advanced": true
+    },
+    {
+     "key": "NUGGET_FRAC",
+     "kind": "number",
+     "label": {
+      "ru": "Доля наггета (от дисперсии)",
+      "en": "Nugget fraction (of variance)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.35,
+     "minimum": 0.0,
+     "maximum": 0.7,
+     "advanced": true
+    },
+    {
+     "key": "MINTYPE",
+     "kind": "bool",
+     "label": {
+      "ru": "Добавить категориальное поле минтипа (демо замещения)",
+      "en": "Add a categorical mineral-type field (replacement demo)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false
+    },
+    {
+     "key": "HEAD",
+     "kind": "bool",
+     "label": {
+      "ru": "Добавить поле напора (для градиента потока)",
+      "en": "Add a head field (for flow gradient)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false
+    },
+    {
+     "key": "HYDRO",
+     "kind": "bool",
+     "label": {
+      "ru": "Добавить поля K и T и напор (для удельного расхода)",
+      "en": "Add K and T fields and head (for the specific discharge)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": false
+    },
+    {
+     "key": "SEED",
+     "kind": "integer",
+     "label": {
+      "ru": "Зерно ГСЧ (0 = случайно)",
+      "en": "RNG seed (0 = random)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0,
+     "minimum": 0,
+     "advanced": true
+    },
+    {
+     "key": "THROW",
+     "kind": "number",
+     "label": {
+      "ru": "Амплитуда разлома, единицы значения",
+      "en": "Fault throw, units of the value"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 0.0
+    },
+    {
+     "key": "OUTPUT_FAULT",
+     "kind": "sink",
+     "label": {
+      "ru": "Разлом (демо)",
+      "en": "Fault (demo)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "line",
+     "optional": true
+    },
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Скважины (демо)",
+      "en": "Wells (demo)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Сгенерировано скважин: %d. Поля: кровля (roof), мощность (thick), содержание X. Дисперсия X ≈ %.4g.",
+     "en": "Wells generated: %d. Fields: roof, thickness (thick), grade X. Variance of X ≈ %.4g."
+    },
+    {
+     "ru": "Стартовая вариограмма для X (кригинг/кросс-валидация): суммарный силл ≈ %.4g, наггет C0 ≈ %.4g, радиус ≈ %.4g (в единицах координат). Уточните наггет по кросс-валидации до MSDR ≈ 1.",
+     "en": "Starting variogram for X (kriging/cross-validation): total sill ≈ %.4g, nugget C0 ≈ %.4g, range ≈ %.4g (in coordinate units). Refine the nugget via cross-validation until MSDR ≈ 1."
+    },
+    {
+     "ru": "Не задана корректная область (экстент).",
+     "en": "No valid area (extent) specified."
+    },
+    {
+     "ru": "Максимум значения должен быть больше минимума.",
+     "en": "The maximum value must be greater than the minimum."
+    },
+    {
+     "ru": "Разлом с амплитудой %.3g: значения сдвинуты по одну сторону от линии. Линия не доходит до краёв площади, и выше её конца поверхность обязана смыкаться.",
+     "en": "A fault with a throw of %.3g: the values are shifted on one side of the line. The line does not reach the edges of the area, and above its end the surface must close up."
+    },
+    {
+     "ru": "Поле mintype (демо): ",
+     "en": "Field mintype (demo): "
+    },
+    {
+     "ru": "Поле напора (head): региональный уклон + локальная вариация. Кригуйте head, затем подайте растр в «Гидравлический градиент и направление потока».",
+     "en": "Head field (head): a regional slope plus local variation. Krige head, then feed the raster to \"Hydraulic gradient and flow direction\"."
+    },
+    {
+     "ru": "Поля K и T (демо): K лог-нормально (K ≈ %.4g…%.4g м/сут), T = K·мощность. Для удельного расхода создайте калькулятором поля ln(K) и ln(T), кригуйте их, а при подаче в «Удельный расход (Дарси)» включите галку «Растры заданы как ln». Напор (head) кригуйте как обычно.",
+     "en": "K and T fields (demo): K is log-normal (K ≈ %.4g…%.4g m/day), T = K·thickness. For the specific discharge, build ln(K) and ln(T) fields with the field calculator, krige them, and when feeding \"Specific discharge (Darcy law)\" tick \"rasters are given as ln\". Krige head as usual."
+    },
+    {
+     "ru": "Каменная соль замещения",
+     "en": "Replacement rock salt"
+    },
+    {
+     "ru": "Частичное замещение кс",
+     "en": "Partial replacement"
+    },
+    {
+     "ru": "Сильвинит",
+     "en": "Sylvinite"
+    },
+    {
+     "ru": "ПК%d+%02d",
+     "en": "PK%d+%02d"
+    },
+    {
+     "ru": "Не задан охват.",
+     "en": "No extent set."
+    },
+    {
+     "ru": "Оседания: профилей %d, туров %d, точек %d. Мульда до %.1f мм. Разность settle между турами по одним пикетам даёт скорость оседания.",
+     "en": "Subsidence: %d profiles, %d tours, %d points. Trough down to %.1f mm. The settle difference between tours at the same pickets gives the settlement rate."
+    },
+    {
+     "ru": "Электроразведка: профилей %d, точек %d. ρк %.4g..%.4g Ом·м, ЕП %.1f..%.1f мВ.",
+     "en": "Electrical prospecting: %d profiles, %d points. rho_k %.4g..%.4g Ohm*m, SP %.1f..%.1f mV."
+    },
+    {
+     "ru": "Интерполируйте rho_k (2D Kriging или минимальная кривизна) и постройте изолинии - аномалия-пятно оконтурится. Поле rho_true - эталон без шума для проверки точности.",
+     "en": "Interpolate rho_k (2D Kriging or minimum curvature) and build isolines - the spot anomaly will be outlined. The rho_true field is a noise-free reference for accuracy checks."
+    },
+    {
+     "ru": "Сферическая",
+     "en": "Spherical"
+    },
+    {
+     "ru": "Экспоненциальная",
+     "en": "Exponential"
+    },
+    {
+     "ru": "Гауссова",
+     "en": "Gaussian"
+    },
+    {
+     "ru": "Степенная",
+     "en": "Power"
+    },
+    {
+     "ru": "Первый шаг: h=%.4g, пар %d, γ=%.4g при дисперсии данных %.4g.",
+     "en": "First lag: h=%.4g, pairs %d, gamma=%.4g against a data variance of %.4g."
+    },
+    {
+     "ru": "Пары, формирующие наггет (внутри первого шага):",
+     "en": "Pairs that form the nugget (within the first lag):"
+    },
+    {
+     "ru": "Качество подгонки R²=%.3f ниже %.2g: модель почти ничего не объясняет. Пользоваться её параметрами как есть нельзя - проверьте выбросы и парные близкие точки.",
+     "en": "Fit quality R2=%.3f is below %.2g: the model explains next to nothing. Its parameters cannot be used as they are - check for outliers and pairs of nearby points."
+    },
+    {
+     "ru": "Доля наггета %.0f%% от суммарного порога. Связь на коротких расстояниях не разрешена. Кригинг по такой модели сглаживает оценку до среднего, а на карте дают «бычьи глаза».",
+     "en": "The nugget is %.0f%% of the total sill: correlation at short distances is not resolved. Kriging with such a model smooths the estimate towards the mean and produces bull's eyes on the map."
+    },
+    {
+     "ru": "На первом шаге разброс уже выше общей дисперсии. Описать это можно только наггетом, и кригинг после такого подбора будет возвращать среднее вместо карты.",
+     "en": "At the first lag the spread already exceeds the overall variance. Only a nugget can describe this, and kriging fitted this way returns the mean instead of a map."
+    },
+    {
+     "ru": "  расстояние %.4g, значения %.4g и %.4g, вклад γ=%.4g (x %.6g y %.6g / x %.6g y %.6g)",
+     "en": "  distance %.4g, values %.4g and %.4g, contribution gamma=%.4g (x %.6g y %.6g / x %.6g y %.6g)"
+    },
+    {
+     "ru": "Мало точек (%d): оценка кригинга и вариограммы неустойчива.",
+     "en": "Few points (%d): the kriging and variogram estimates are unstable."
+    },
+    {
+     "ru": "Точек с совпадающими координатами: %d. Частая причина вырожденной матрицы и артефактов. Уберите дубли или усредните пробы в одной точке.",
+     "en": "Points with coinciding coordinates: %d. A common cause of a singular matrix and artefacts. Remove duplicates or average the samples at one location."
+    },
+    {
+     "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
+     "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
+    }
+   ]
+  },
+  {
+   "code": "4.11",
+   "name": "plast_reference_template",
+   "title": {
+    "ru": "Образец справочника пластов",
+    "en": "Bed reference template"
+   },
+   "group": "4",
+   "help": {
+    "ru": "Кладёт в проект поставляемый образец справочника пластов - тот, что читают инструменты 4.01 и 4.02. Это таблица без геометрии: одна строка на пласт или междупластье, сверху вниз по разрезу, с кодом, порядком залегания, телом и цветом.\n\nОбразец собран по Верхнекамскому месторождению, 36 строк от покровных отложений до нижней каменной соли. Для другого месторождения он служит основой. Сохраните слой в файл и правьте коды, порядок и цвета под свою стратиграфию.\n\nТело («пласт» или «междупластье») заполняет геолог, и это не формальность. Из кода тело не выводится: АБ выглядит как «А плюс Б», но это цельный пласт, а Б-В - междупластье, хотя пласта Б в списке нет. Инструмент значения тела не пересчитывает.\n\nТот же файл лежит в папке templates внутри каталога плагина в видах xlsx и csv, если удобнее открыть его вне QGIS.",
+    "en": "Adds the bundled bed reference template to the project - the one read by tools 4.01 and 4.02. It is a table without geometry: one row per bed or interbed, top to bottom down the section, with the code, the bedding order, the body kind and the colour.\n\nThe template is built for the Verkhnekamskoye deposit, 36 rows from the cover deposits down to the lower rock salt. For another deposit it serves as a skeleton: save the layer to a file and edit the codes, the order and the colours for your own stratigraphy.\n\nThe body (bed or interbed) is filled in by the geologist, and that is not a formality. The body cannot be derived from the code: АБ looks like A plus Б, yet it is a single bed, while Б-В is an interbed even though there is no bed Б in the list. The tool does not recompute the body values.\n\nThe same file lives in the templates folder inside the plugin directory in xlsx and csv forms, if it is easier to open it outside QGIS."
+   },
+   "params": [
+    {
+     "key": "OUTPUT",
+     "kind": "sink",
+     "label": {
+      "ru": "Справочник пластов (образец)",
+      "en": "Bed reference (template)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "none"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Образец положен в проект. Подайте его в 4.01 и 4.02 как «Справочник пластов (таблица)».",
+     "en": "The template has been added to the project. Feed it to 4.01 and 4.02 as the Bed reference (table)."
+    },
+    {
+     "ru": "Образец справочника не найден в поставке: %s",
+     "en": "The bed reference template is missing from the package: %s"
+    },
+    {
+     "ru": "междупластье",
+     "en": "interbed"
+    },
+    {
+     "ru": "пласт",
+     "en": "bed"
+    },
+    {
+     "ru": "Сферическая",
+     "en": "Spherical"
+    },
+    {
+     "ru": "Экспоненциальная",
+     "en": "Exponential"
+    },
+    {
+     "ru": "Гауссова",
+     "en": "Gaussian"
+    },
+    {
+     "ru": "Степенная",
+     "en": "Power"
+    },
+    {
+     "ru": "Первый шаг: h=%.4g, пар %d, γ=%.4g при дисперсии данных %.4g.",
+     "en": "First lag: h=%.4g, pairs %d, gamma=%.4g against a data variance of %.4g."
+    },
+    {
+     "ru": "Пары, формирующие наггет (внутри первого шага):",
+     "en": "Pairs that form the nugget (within the first lag):"
+    },
+    {
+     "ru": "Качество подгонки R²=%.3f ниже %.2g: модель почти ничего не объясняет. Пользоваться её параметрами как есть нельзя - проверьте выбросы и парные близкие точки.",
+     "en": "Fit quality R2=%.3f is below %.2g: the model explains next to nothing. Its parameters cannot be used as they are - check for outliers and pairs of nearby points."
+    },
+    {
+     "ru": "Доля наггета %.0f%% от суммарного порога. Связь на коротких расстояниях не разрешена. Кригинг по такой модели сглаживает оценку до среднего, а на карте дают «бычьи глаза».",
+     "en": "The nugget is %.0f%% of the total sill: correlation at short distances is not resolved. Kriging with such a model smooths the estimate towards the mean and produces bull's eyes on the map."
+    },
+    {
+     "ru": "На первом шаге разброс уже выше общей дисперсии. Описать это можно только наггетом, и кригинг после такого подбора будет возвращать среднее вместо карты.",
+     "en": "At the first lag the spread already exceeds the overall variance. Only a nugget can describe this, and kriging fitted this way returns the mean instead of a map."
+    },
+    {
+     "ru": "  расстояние %.4g, значения %.4g и %.4g, вклад γ=%.4g (x %.6g y %.6g / x %.6g y %.6g)",
+     "en": "  distance %.4g, values %.4g and %.4g, contribution gamma=%.4g (x %.6g y %.6g / x %.6g y %.6g)"
+    },
+    {
+     "ru": "Мало точек (%d): оценка кригинга и вариограммы неустойчива.",
+     "en": "Few points (%d): the kriging and variogram estimates are unstable."
+    },
+    {
+     "ru": "Точек с совпадающими координатами: %d. Частая причина вырожденной матрицы и артефактов. Уберите дубли или усредните пробы в одной точке.",
+     "en": "Points with coinciding coordinates: %d. A common cause of a singular matrix and artefacts. Remove duplicates or average the samples at one location."
+    },
+    {
+     "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
+     "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
+    }
+   ]
+  },
+  {
+   "code": "7.05",
+   "name": "fractal_demo",
+   "title": {
+    "ru": "Пример для фракталов (демо)",
+    "en": "Example for fractals (demo)"
+   },
+   "group": "7",
+   "help": {
+    "ru": "Генерирует учебные объекты для фрактальных инструментов: ветвящуюся речную сеть (поле order - порядок притока), полигон водосбора с изрезанной границей и отдельную береговую линию (срединные смещения).\n\nСвоих данных при первом знакомстве не нужно. Сеть, берег и границу водосбора подавайте в 7.03 или 7.04, а растеризованный водосбор в 7.02. Изрезанная граница и плавная береговая линия дают заметно разные числа. На этой паре и видно, что инструмент меряет извилистость, а не длину.",
+    "en": "Generates training objects for the fractal tools: a branching river network (the order field - tributary order), a catchment polygon with a rugged boundary and a separate coastline (midpoint displacement). Feed the rivers into 6.11 - network dimension; the coast and the catchment boundary into 6.10 and 5.04; rasterise the catchment - it is also an example for 5.02."
+   },
+   "params": [
+    {
+     "key": "EXTENT",
+     "kind": "features",
+     "label": {
+      "ru": "Слой, по охвату которого строить",
+      "en": "Layer whose extent to build in"
+     },
+     "hint": {
+      "ru": "Демо-объекты ложатся в охват объектов этого слоя.",
+      "en": "The demo features are laid out within the extent of the features of this layer."
+     }
+    },
+    {
+     "key": "SEED",
+     "kind": "integer",
+     "label": {
+      "ru": "Зерно ГСЧ (0 = случайно)",
+      "en": "RNG seed (0 = random)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1,
+     "minimum": 0,
+     "advanced": true
+    },
+    {
+     "key": "OUT_RIVERS",
+     "kind": "sink",
+     "label": {
+      "ru": "Реки (демо)",
+      "en": "Rivers (demo)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "line"
+    },
+    {
+     "key": "OUT_BASIN",
+     "kind": "sink",
+     "label": {
+      "ru": "Водосбор (демо)",
+      "en": "Basin (demo)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "source"
+    },
+    {
+     "key": "OUT_COAST",
+     "kind": "sink",
+     "label": {
+      "ru": "Берег (демо)",
+      "en": "Coast (demo)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "line"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Рек сгенерировано: %d.",
+     "en": "Rivers generated: %d."
+    },
+    {
+     "ru": "Не задан охват.",
+     "en": "No extent set."
+    },
+    {
+     "ru": "ПК%d+%02d",
+     "en": "PK%d+%02d"
+    },
+    {
+     "ru": "Оседания: профилей %d, туров %d, точек %d. Мульда до %.1f мм. Разность settle между турами по одним пикетам даёт скорость оседания.",
+     "en": "Subsidence: %d profiles, %d tours, %d points. Trough down to %.1f mm. The settle difference between tours at the same pickets gives the settlement rate."
+    },
+    {
+     "ru": "Электроразведка: профилей %d, точек %d. ρк %.4g..%.4g Ом·м, ЕП %.1f..%.1f мВ.",
+     "en": "Electrical prospecting: %d profiles, %d points. rho_k %.4g..%.4g Ohm*m, SP %.1f..%.1f mV."
+    },
+    {
+     "ru": "Интерполируйте rho_k (2D Kriging или минимальная кривизна) и постройте изолинии - аномалия-пятно оконтурится. Поле rho_true - эталон без шума для проверки точности.",
+     "en": "Interpolate rho_k (2D Kriging or minimum curvature) and build isolines - the spot anomaly will be outlined. The rho_true field is a noise-free reference for accuracy checks."
+    },
+    {
+     "ru": "Сферическая",
+     "en": "Spherical"
+    },
+    {
+     "ru": "Экспоненциальная",
+     "en": "Exponential"
+    },
+    {
+     "ru": "Гауссова",
+     "en": "Gaussian"
+    },
+    {
+     "ru": "Степенная",
+     "en": "Power"
+    },
+    {
+     "ru": "Первый шаг: h=%.4g, пар %d, γ=%.4g при дисперсии данных %.4g.",
+     "en": "First lag: h=%.4g, pairs %d, gamma=%.4g against a data variance of %.4g."
+    },
+    {
+     "ru": "Пары, формирующие наггет (внутри первого шага):",
+     "en": "Pairs that form the nugget (within the first lag):"
+    },
+    {
+     "ru": "Качество подгонки R²=%.3f ниже %.2g: модель почти ничего не объясняет. Пользоваться её параметрами как есть нельзя - проверьте выбросы и парные близкие точки.",
+     "en": "Fit quality R2=%.3f is below %.2g: the model explains next to nothing. Its parameters cannot be used as they are - check for outliers and pairs of nearby points."
+    },
+    {
+     "ru": "Доля наггета %.0f%% от суммарного порога. Связь на коротких расстояниях не разрешена. Кригинг по такой модели сглаживает оценку до среднего, а на карте дают «бычьи глаза».",
+     "en": "The nugget is %.0f%% of the total sill: correlation at short distances is not resolved. Kriging with such a model smooths the estimate towards the mean and produces bull's eyes on the map."
+    },
+    {
+     "ru": "На первом шаге разброс уже выше общей дисперсии. Описать это можно только наггетом, и кригинг после такого подбора будет возвращать среднее вместо карты.",
+     "en": "At the first lag the spread already exceeds the overall variance. Only a nugget can describe this, and kriging fitted this way returns the mean instead of a map."
+    },
+    {
+     "ru": "  расстояние %.4g, значения %.4g и %.4g, вклад γ=%.4g (x %.6g y %.6g / x %.6g y %.6g)",
+     "en": "  distance %.4g, values %.4g and %.4g, contribution gamma=%.4g (x %.6g y %.6g / x %.6g y %.6g)"
+    },
+    {
+     "ru": "Мало точек (%d): оценка кригинга и вариограммы неустойчива.",
+     "en": "Few points (%d): the kriging and variogram estimates are unstable."
+    },
+    {
+     "ru": "Точек с совпадающими координатами: %d. Частая причина вырожденной матрицы и артефактов. Уберите дубли или усредните пробы в одной точке.",
+     "en": "Points with coinciding coordinates: %d. A common cause of a singular matrix and artefacts. Remove duplicates or average the samples at one location."
+    },
+    {
+     "ru": "Все значения одинаковы. Кригинг вырождается, вариограмма нулевая. Проверьте выбранное поле.",
+     "en": "All values are identical: kriging degenerates and the variogram is zero. Check the selected field."
+    }
+   ]
+  },
+  {
+   "code": "3.08",
+   "name": "densitydemo",
+   "title": {
+    "ru": "Пример для плотности (демо)",
+    "en": "Example for density (demo)"
+   },
+   "group": "3",
+   "help": {
+    "ru": "Синтетический набор для инструмента 3.07 с заранее известной суммарной массой. Точки (масса 500, сигмы от долей ячейки до крупных), линии (масса 200, у одной вырезка интервала from_m/to_m), полигоны (масса 300, один под дазиметрию) и вспомогательный растр. Итого 1000.\n\nЗапустите 3.07 на слое точек, и интеграл плотности должен дать ровно 500, на линиях 200, на полигонах 300. Расхождение означает ошибку расчёта, а не погрешность сетки. Поля: mass, prec, from_m, to_m.",
+    "en": "A synthetic set for tool 3.07 with a known total mass, to check the invariant by eye. Points (mass 500, sigmas from fractions of a cell to large), lines (mass 200, one with a from_m/to_m interval cut), polygons (mass 300, one for dasymetry) and an auxiliary raster. Total mass 1000.\n\nRun 3.07 on the point layer - the density integral should give 500, on lines 200, on polygons 300. Fields: mass, prec, from_m, to_m."
+   },
+   "params": [
+    {
+     "key": "EXTENT",
+     "kind": "features",
+     "label": {
+      "ru": "Слой, по охвату которого строить",
+      "en": "Layer whose extent to build in"
+     },
+     "hint": {
+      "ru": "Демо-объекты ложатся в охват объектов этого слоя.",
+      "en": "The demo features are laid out within the extent of the features of this layer."
+     }
+    },
+    {
+     "key": "SEED",
+     "kind": "integer",
+     "label": {
+      "ru": "Зерно ГСЧ (0 = случайно)",
+      "en": "RNG seed (0 = random)"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "default": 1,
+     "minimum": 0,
+     "advanced": true
+    },
+    {
+     "key": "OUT_POINTS",
+     "kind": "sink",
+     "label": {
+      "ru": "Демо-точки",
+      "en": "Demo points"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "point"
+    },
+    {
+     "key": "OUT_LINES",
+     "kind": "sink",
+     "label": {
+      "ru": "Демо-линии",
+      "en": "Demo lines"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "line"
+    },
+    {
+     "key": "OUT_POLYGONS",
+     "kind": "sink",
+     "label": {
+      "ru": "Демо-полигоны",
+      "en": "Demo polygons"
+     },
+     "hint": {
+      "ru": "",
+      "en": ""
+     },
+     "geometry": "source"
+    }
+   ],
+   "messages": [
+    {
+     "ru": "Демо создано. Масса: точки 500, линии 200, полигоны 300, итого 1000. Прогоните 3.07 на каждом слое - интеграл плотности должен совпасть.",
+     "en": "Demo created. Mass: points 500, lines 200, polygons 300, total 1000. Run 3.07 on each layer - the density integral should match."
+    },
+    {
+     "ru": "Не задан охват.",
+     "en": "No extent set."
+    },
+    {
+     "ru": "ПК%d+%02d",
+     "en": "PK%d+%02d"
+    },
+    {
+     "ru": "Оседания: профилей %d, туров %d, точек %d. Мульда до %.1f мм. Разность settle между турами по одним пикетам даёт скорость оседания.",
+     "en": "Subsidence: %d profiles, %d tours, %d points. Trough down to %.1f mm. The settle difference between tours at the same pickets gives the settlement rate."
+    },
+    {
+     "ru": "Электроразведка: профилей %d, точек %d. ρк %.4g..%.4g Ом·м, ЕП %.1f..%.1f мВ.",
+     "en": "Electrical prospecting: %d profiles, %d points. rho_k %.4g..%.4g Ohm*m, SP %.1f..%.1f mV."
+    },
+    {
+     "ru": "Интерполируйте rho_k (2D Kriging или минимальная кривизна) и постройте изолинии - аномалия-пятно оконтурится. Поле rho_true - эталон без шума для проверки точности.",
+     "en": "Interpolate rho_k (2D Kriging or minimum curvature) and build isolines - the spot anomaly will be outlined. The rho_true field is a noise-free reference for accuracy checks."
     }
    ]
   }

@@ -26,6 +26,130 @@ pub const OPTIONS: Options = Options {
     xy_tables: &[],
 };
 
+/// Своя вкладка ленты: группы по номерам модуля, инструменты в меню со
+/// значками RustGIS (у инструмента своего значка нет, на ленте он был бы
+/// сундуком).
+pub mod tab {
+    use rustgis_kit::manifest::{Group, Item, Label, Layout, Menu, Tab};
+
+    const fn l(en: &'static str, ru: &'static str) -> Label {
+        Label { en, ru }
+    }
+
+    const fn menu(label: Label, icon: &'static str, help: Label, items: &'static [Item]) -> Menu {
+        Menu {
+            label,
+            icon: Some(icon),
+            help: Some(help),
+            layout: None,
+            items,
+        }
+    }
+
+    static VARIOGRAMS: Menu = menu(
+        l("Variograms", "Вариограммы"),
+        "chart",
+        l(
+            "Declustering weights, the experimental variogram and cross-validation of the variogram and of the method.",
+            "Веса декластеризации, экспериментальная вариограмма и кросс-валидация вариограммы и метода.",
+        ),
+        &[
+            Item::Tool("declustering"),
+            Item::Tool("experimental_variogram"),
+            Item::Tool("crossvalidation"),
+            Item::Tool("method_crossvalidation"),
+        ],
+    );
+    static GRID_EXAMPLES: Menu = menu(
+        l("Examples", "Примеры"),
+        "point_layer",
+        l(
+            "Example data for the tools.",
+            "Примеры данных для инструментов.",
+        ),
+        &[Item::Tool("examplewells"), Item::Tool("geophysprofiles")],
+    );
+    static CONTOURS: Menu = menu(
+        l("Contours", "Горизонтали"),
+        "relief",
+        l(
+            "Contour lines for building and checking a terrain model.",
+            "Горизонтали для построения и проверки модели рельефа.",
+        ),
+        &[Item::Tool("contoursplit")],
+    );
+    static DENSITY: Menu = menu(
+        l("Density", "Плотность"),
+        "point_layer",
+        l(
+            "Example data for the density of measurements.",
+            "Пример данных для плотности по замерам.",
+        ),
+        &[Item::Tool("densitydemo")],
+    );
+    static DRILLHOLES: Menu = menu(
+        l("Drillholes", "Скважины"),
+        "table",
+        l(
+            "Drillhole data and the bed reference.",
+            "Данные бурения и справочник пластов.",
+        ),
+        &[
+            Item::Tool("bed_grades_at_collars"),
+            Item::Tool("plast_reference_template"),
+        ],
+    );
+    static DIMENSION: Menu = menu(
+        l("Dimension", "Размерность"),
+        "measure",
+        l(
+            "Fractal dimension of lines and boundaries and example data.",
+            "Фрактальная размерность линий и границ и пример данных.",
+        ),
+        &[
+            Item::Tool("line_dimension"),
+            Item::Tool("minkowski_dimension"),
+            Item::Tool("fractal_demo"),
+        ],
+    );
+
+    pub static TAB: Tab = Tab {
+        label: l("Isoliner", "Isoliner"),
+        groups: &[
+            Group {
+                label: l("Kriging", "Кригинг"),
+                layout: Layout::Large,
+                items: &[Item::Menu(&VARIOGRAMS), Item::Menu(&GRID_EXAMPLES)],
+            },
+            Group {
+                label: l("Topography", "Топография"),
+                layout: Layout::Large,
+                items: &[Item::Menu(&CONTOURS)],
+            },
+            Group {
+                label: l("Analysis", "Анализ"),
+                layout: Layout::Large,
+                items: &[Item::Menu(&DENSITY)],
+            },
+            Group {
+                label: l("Section", "Разрез"),
+                layout: Layout::Large,
+                items: &[Item::Menu(&DRILLHOLES)],
+            },
+            Group {
+                label: l("Fractals", "Фракталы"),
+                layout: Layout::Large,
+                items: &[Item::Menu(&DIMENSION)],
+            },
+            Group {
+                label: l("Help", "Справка"),
+                layout: Layout::Large,
+                items: &[Item::Command("about")],
+            },
+        ],
+    };
+}
+
 /// Папка данных расширения во временной папке системы.
 pub fn home() -> std::path::PathBuf {
     rustgis_kit::store::temp_home("isoliner")

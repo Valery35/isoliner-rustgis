@@ -18,10 +18,26 @@ fn path() -> String {
 #[test]
 fn manifest_tools_follow_tools_json() {
     let kit = isoliner_rustgis::product::catalog().unwrap();
-    let (tools, ru) = rustgis_kit::manifest::tools_section(&kit, &OPTIONS);
+    let (tools, mut ru) = rustgis_kit::manifest::tools_section(&kit, &OPTIONS);
+    // вкладка ленты собирается крейтом из product::tab::TAB
+    let base: J = serde_json::from_slice(&std::fs::read(path()).unwrap()).unwrap();
+    let commands: Vec<&str> = base["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap())
+        .collect();
+    let (tab, tab_ru) = rustgis_kit::manifest::tab_section(
+        &isoliner_rustgis::product::tab::TAB,
+        &kit,
+        &OPTIONS,
+        &commands,
+    )
+    .unwrap();
+    ru.extend(tab_ru);
     if std::env::var_os("ISOLINER_MANIFEST").is_some() {
         let text = std::fs::read_to_string(path()).unwrap();
-        let text = rustgis_kit::manifest::splice(&text, &tools, &ru).unwrap();
+        let text = rustgis_kit::manifest::splice_all(&text, &tools, Some(&tab), &ru).unwrap();
         std::fs::write(path(), text).unwrap();
     }
     let m: J = serde_json::from_slice(&std::fs::read(path()).unwrap()).unwrap();
@@ -29,6 +45,10 @@ fn manifest_tools_follow_tools_json() {
         m["tools"],
         json!(tools),
         "plugin.json устарел: ISOLINER_MANIFEST=1 cargo test"
+    );
+    assert_eq!(
+        m["tab"], tab,
+        "вкладка устарела: ISOLINER_MANIFEST=1 cargo test"
     );
     for (k, v) in &ru {
         assert_eq!(&m["i18n"]["ru"][k], v, "нет перевода: {k}");
@@ -46,7 +66,8 @@ fn manifest_tools_follow_tools_json() {
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
         );
         let ps = t["params"].as_array().unwrap();
-        assert!(!ps.is_empty() && ps.len() <= 32);
+        // полей может не быть (4.11), больше 32 RustGIS 0.6.0 не примет
+        assert!(ps.len() <= 32);
         for p in ps {
             let n = p["name"].as_str().unwrap();
             assert!(n.starts_with(|c: char| c.is_ascii_lowercase()), "{n}");
@@ -79,6 +100,7 @@ fn manifest_tools_follow_tools_json() {
 /// Значки, которые RustGIS 0.6.0 знает (`crates/ui-egui/src/icons.rs`);
 /// неизвестное имя рисуется куском пазла.
 const ICONS: &[&str] = &[
+    "catalog",
     "about",
     "chart",
     "point_layer",
@@ -92,6 +114,7 @@ fn group_of(code: &str) -> &'static str {
     match code.split('.').next().unwrap_or("") {
         "1" => "Kriging",
         "2" => "Topography",
+        "3" => "Analysis",
         "4" => "Section",
         "7" => "Fractals",
         _ => "?",

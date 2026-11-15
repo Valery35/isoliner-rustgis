@@ -17,10 +17,14 @@ pub mod contour_split;
 pub mod crossval;
 pub mod cv;
 pub mod declustering;
+pub mod density_demo;
+pub mod example_wells;
+pub mod fractal_demo;
 pub mod geophys_profiles;
 pub mod line_dimension;
 pub mod method_cv;
 pub mod minkowski;
+pub mod plast_template;
 pub mod variogram;
 
 /// Инструменты расширения в порядке панели: имя Processing.
@@ -34,6 +38,10 @@ pub const OFFERED: &[&str] = &[
     "method_crossvalidation",
     "minkowski_dimension",
     "contoursplit",
+    "examplewells",
+    "densitydemo",
+    "fractal_demo",
+    "plast_reference_template",
 ];
 
 /// Значения прогона с умолчаниями из описания инструмента: поле, которое
@@ -136,6 +144,10 @@ pub fn run(
         "method_crossvalidation" => Some(method_cv::run(&v, report)),
         "minkowski_dimension" => Some(minkowski::run(&v, report)),
         "contoursplit" => Some(contour_split::run(&v, report)),
+        "examplewells" => Some(example_wells::run(&v, report)),
+        "densitydemo" => Some(density_demo::run(&v, report)),
+        "fractal_demo" => Some(fractal_demo::run(&v, report)),
+        "plast_reference_template" => Some(plast_template::run(&v, report)),
         _ => None,
     }
 }
