@@ -124,7 +124,7 @@ pub mod tab {
             Group {
                 label: l("Topography", "Топография"),
                 layout: Layout::Large,
-                items: &[Item::Menu(&CONTOURS)],
+                items: &[Item::Menu(&CONTOURS), Item::Command("slope-aspect")],
             },
             Group {
                 label: l("Analysis", "Анализ"),
@@ -216,8 +216,12 @@ impl Product for Isoliner {
         }
     }
 
-    fn command(&self, _host: &mut dyn Call, req: &J, lang: Lang) -> J {
+    fn command(&self, host: &mut dyn Call, req: &J, lang: Lang) -> J {
         match req["id"].as_str().unwrap_or("") {
+            "slope-aspect" => match crate::raster_cmd::slope_aspect(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
             "about" => json!({"ok": {
                 "title": "Isoliner",
                 "version": env!("CARGO_PKG_VERSION"),

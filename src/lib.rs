@@ -16,6 +16,7 @@ pub mod drillhole;
 pub mod field_format;
 pub mod fractal;
 pub mod geodemo;
+pub mod geotiff;
 pub mod kb2d;
 pub mod krige;
 pub mod mincurv;
@@ -24,8 +25,10 @@ pub mod numpy;
 pub mod points;
 pub mod product;
 pub mod pyfmt;
+pub mod raster_cmd;
 pub mod report;
 pub mod tools;
+pub mod topo_surface;
 pub mod validate;
 pub mod vgtable;
 // константы NumPy как есть, со всеми знаками исходника

@@ -17,6 +17,8 @@ publish = false
 rustgis-kit = { git = "https://github.com/Valery35/rustgis-kit", tag = "v0.1.9" }
 # float_roundtrip: числа образцов модуля читаются до бита
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# GeoTIFF для растровых команд: Deflate и LZW, как пишет RustGIS
+tiff = { version = "0.11", default-features = false, features = ["deflate", "lzw"] }
 
 # сверка 1.09 гоняет решатель минимальной кривизны сотни раз: тесты
 # собираются с оптимизацией, иначе идут минутами
