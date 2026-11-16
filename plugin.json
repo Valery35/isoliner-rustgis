@@ -1,14 +1,15 @@
 {
   "id": "isoliner",
   "name": "Isoliner",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Isoliner tools for RustGIS: declustering, variograms and cross-validation for kriging, contours, drillhole grades and fractal dimension. They compute as in the Isoliner plugin for QGIS and take the same fields.",
   "author": "Inform++ LLC",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/Valery35/isoliner-rustgis",
   "runtime": "process",
   "session": true,
   "run": { "windows": ["bin/isoliner-rustgis.exe", "rustgis-plugin"] },
-  "minRustgisVersion": "0.6.0",
+  "minRustgisVersion": "0.7.0",
   "commands": [
     { "id": "about", "label": "About\nIsoliner", "help": "About the extension with its version and the number of tools.", "icon": "about", "params": "{} (answers the title, the version of the extension and of the QGIS plugin it follows, the number of tools)" }
   ],
