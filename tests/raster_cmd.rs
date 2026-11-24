@@ -40,6 +40,14 @@ impl Call for Fake {
                 std::fs::copy(data("dem_small.tif"), to).map_err(|e| e.to_string())?;
                 Ok(json!({"path": to}))
             }
+            "host.features" => {
+                let layer = params["layer"].as_str().unwrap();
+                match layer {
+                    "wells" => Ok(plane_points_geojson()),
+                    "bounds" => Ok(bounds_geojson()),
+                    _ => Err(format!("unexpected layer {layer}")),
+                }
+            }
             "layer.addData" => {
                 self.added
                     .push(PathBuf::from(params["path"].as_str().unwrap()));
@@ -48,6 +56,35 @@ impl Call for Fake {
             _ => Err(format!("unexpected {op}")),
         }
     }
+}
+
+fn plane_points_geojson() -> J {
+    let mut feats = Vec::new();
+    for k in 0..9 {
+        let x = 5.0 + f64::from(k % 3) * 50.0;
+        let y = 5.0 + f64::from(k / 3) * 40.0;
+        let z = 2.0 * x - y + 7.0;
+        feats.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [x, y]},
+            "properties": {"z": z}
+        }));
+    }
+    json!({"type": "FeatureCollection", "features": feats})
+}
+
+fn bounds_geojson() -> J {
+    json!({
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0.0, 0.0], [120.0, 0.0], [120.0, 100.0], [0.0, 100.0], [0.0, 0.0]]]
+            },
+            "properties": {}
+        }]
+    })
 }
 
 fn f32s(name: &str) -> Vec<f32> {
@@ -91,6 +128,43 @@ fn slope_aspect_matches_module_bit_for_bit() {
     let report = out["report"].as_str().unwrap();
     assert!(report.starts_with("Slope: from "), "{report}");
     assert!(host.added[0].ends_with("Slope, degrees.tif"));
+}
+
+#[test]
+fn minimum_curvature_reproduces_plane() {
+    let mut host = Fake::default();
+    let out = raster_cmd::minimum_curvature(
+        &mut host,
+        &json!({
+            "input": "wells",
+            "zfield": "z",
+            "extent": "bounds",
+            "cell_size": 10.0,
+            "max_residual": 1e-9
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert_eq!((g.width, g.height), (12, 10));
+    let frame = isoliner_rustgis::mincurv::Frame {
+        xmin: 0.0,
+        ymin: 0.0,
+        cell: 10.0,
+        nx: 12,
+        ny: 10,
+    };
+    let grid = isoliner_rustgis::mincurv::Grid {
+        nx: g.width,
+        ny: g.height,
+        z: g.z.clone(),
+    };
+    let v = isoliner_rustgis::mincurv::sample_bilinear(&grid, &frame, 65.0, 35.0);
+    assert!((v - 102.0).abs() < 1e-3, "{v}");
+    let report = out["report"].as_str().unwrap();
+    assert!(report.starts_with("Grid "), "{report}");
+    assert!(host.added[0].to_string_lossy().contains("Minimum curvature"));
 }
 
 #[test]

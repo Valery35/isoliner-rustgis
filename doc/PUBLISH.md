@@ -6,6 +6,28 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 
 ## Журнал
 
+### Isoliner для RustGIS 0.1.4 - 25 ноября 2026 года
+
+Выпуск по слову автора «Публикуй». Новая растровая команда 1.02
+«Минимальная кривизна (точки → растр)» в группе «Топография»:
+интерполяция точечного слоя методом бигармонии с натяжением, выход -
+растр GeoTIFF float32. Расчёт в системе координат слоя через
+`host.features`. Нижняя граница RustGIS 0.7.0 сохраняется.
+
+| Площадка | Запись |
+|---|---|
+| GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.4 - пакет `isoliner-0.1.4.rgplugin` |
+| Dropbox | `ИИ\Isoliner\isoliner-0.1.4.rgplugin` |
+| Telegram | пост в канале @qgis_isolines |
+| Mastodon |  |
+| X |  |
+| LinkedIn |  |
+| Facebook |  |
+| ВК | запись на стене |
+| Каталог RustGIS | заявка на обновление `registry/isoliner.json` |
+| Сайт informpp.ru | не обновлялся |
+| RustGIS автора | установлена 0.1.4 |
+
 ### Isoliner для RustGIS 0.1.2 - 16 ноября 2026 года
 
 Первый выпуск, метка `rustgis-v0.1.2`, по слову автора «Выпускай» в

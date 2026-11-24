@@ -43,6 +43,32 @@ pub struct Grid {
     geo_ascii: Option<String>,
 }
 
+impl Grid {
+    /// Новый растр с привязкой: левый нижний угол `(xmin, ymin)`,
+    /// квадратная ячейка `cell`. Верх севера - `ymin + height*cell`.
+    pub fn from_geotransform(width: usize, height: usize, xmin: f64, ymin: f64, cell: f64) -> Self {
+        let size = width * height;
+        Self {
+            width,
+            height,
+            z: vec![0.0; size],
+            mask: vec![false; size],
+            cell: (cell, cell),
+            nodata: None,
+            geo_f64: vec![
+                (Tag::ModelPixelScaleTag, vec![cell, cell, 0.0]),
+                (
+                    Tag::ModelTiepointTag,
+                    vec![0.0, 0.0, 0.0, xmin, ymin + height as f64 * cell, 0.0],
+                ),
+            ],
+            geo_keys: None,
+            geo_doubles: None,
+            geo_ascii: None,
+        }
+    }
+}
+
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }

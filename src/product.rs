@@ -124,7 +124,11 @@ pub mod tab {
             Group {
                 label: l("Topography", "Топография"),
                 layout: Layout::Large,
-                items: &[Item::Menu(&CONTOURS), Item::Command("slope-aspect")],
+                items: &[
+                    Item::Menu(&CONTOURS),
+                    Item::Command("slope-aspect"),
+                    Item::Command("minimum-curvature"),
+                ],
             },
             Group {
                 label: l("Analysis", "Анализ"),
@@ -222,6 +226,12 @@ impl Product for Isoliner {
                 Ok(v) => json!({"ok": v}),
                 Err(e) => json!({"error": e}),
             },
+            "minimum-curvature" => {
+                match crate::raster_cmd::minimum_curvature(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
             "about" => json!({"ok": {
                 "title": "Isoliner",
                 "version": env!("CARGO_PKG_VERSION"),
