@@ -18,12 +18,12 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 |---|---|
 | GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.4 - пакет `isoliner-0.1.4.rgplugin` |
 | Dropbox | `ИИ\Isoliner\isoliner-0.1.4.rgplugin` |
-| Telegram | пост в канале @qgis_isolines |
-| Mastodon |  |
-| X |  |
-| LinkedIn |  |
-| Facebook |  |
-| ВК | запись на стене |
+| Telegram | https://t.me/qgis_isolines/238 |
+| Mastodon | https://en.osm.town/@Vaery35/117674066044470917 |
+| X | https://x.com/Valery35/status/2125373562764607827 |
+| LinkedIn | нужна ручная публикация (диалог рекламных объявлений блокирует кнопку) |
+| Facebook | https://www.facebook.com/valery35/posts/pfbid038HyKSTN9YBvmFeMue5BJw4fWSrzQPzq8vg1n9TvUf2qbPMCA4QeEH5KAZDQJo5o1l |
+| ВК | нужна ручная публикация (канал, не стена) |
 | Каталог RustGIS | заявка на обновление `registry/isoliner.json` |
 | Сайт informpp.ru | не обновлялся |
 | RustGIS автора | установлена 0.1.4 |
