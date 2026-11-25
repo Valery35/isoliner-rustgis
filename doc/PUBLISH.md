@@ -24,7 +24,7 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 | LinkedIn | нужна ручная публикация (диалог рекламных объявлений блокирует кнопку) |
 | Facebook | https://www.facebook.com/valery35/posts/pfbid038HyKSTN9YBvmFeMue5BJw4fWSrzQPzq8vg1n9TvUf2qbPMCA4QeEH5KAZDQJo5o1l |
 | ВК | нужна ручная публикация (канал, не стена) |
-| Каталог RustGIS | заявка на обновление `registry/isoliner.json` |
+| Каталог RustGIS | https://github.com/opengeos/rustgis-plugins/pull/81 |
 | Сайт informpp.ru | не обновлялся |
 | RustGIS автора | установлена 0.1.4 |
 
