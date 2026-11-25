@@ -16,7 +16,7 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 
 | Площадка | Запись |
 |---|---|
-| GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.4 - пакет `isoliner-0.1.4.rgplugin` |
+| GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.4 |
 | Dropbox | `ИИ\Isoliner\isoliner-0.1.4.rgplugin` |
 | Telegram | https://t.me/qgis_isolines/238 |
 | Mastodon | https://en.osm.town/@Vaery35/117674066044470917 |
