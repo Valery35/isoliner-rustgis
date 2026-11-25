@@ -65,8 +65,8 @@ impl Lattice {
     /// Линейный индекс по координатам решётки.
     fn idx(&self, c: &[usize]) -> usize {
         let mut i = c[0];
-        for d in 1..c.len() {
-            i = i * self.shape[d] + c[d];
+        for (d, &cd) in c.iter().enumerate().skip(1) {
+            i = i * self.shape[d] + cd;
         }
         i
     }
@@ -142,8 +142,11 @@ fn trend(pts: &[f64], vals: &[f64], n: usize, ndim: usize, mode: &str) -> (Vec<f
                 }
                 for j in (col + 1)..dim {
                     let f = ata[j][col] / piv;
-                    for i in col..dim {
-                        ata[j][i] -= f * ata[col][i];
+                    let (above, below) = ata.split_at_mut(j);
+                    let row_col = &above[col];
+                    let row_j = &mut below[0];
+                    for (i, ata_j_i) in row_j.iter_mut().enumerate().skip(col) {
+                        *ata_j_i -= f * row_col[i];
                     }
                     atb[j] -= f * atb[col];
                 }
@@ -178,6 +181,7 @@ pub struct Fit {
 /// Подгонка поверхности.
 /// pts — координаты (n × ndim, подряд), vals — значения (n),
 /// grid — стартовые ячейки по осям, levels — уровней уточнения.
+#[allow(clippy::too_many_arguments)]
 pub fn fit(
     pts: &[f64],
     vals: &[f64],
@@ -263,10 +267,8 @@ pub fn fit(
         // RMS.
         rms = (resid.iter().map(|r| r * r).sum::<f64>() / n as f64).sqrt();
         // Досрочный выход.
-        if let Some(t) = tol {
-            if rms < t {
-                break;
-            }
+        if let Some(t) = tol && rms < t {
+            break;
         }
         // Решётка удваивается.
         if level + 1 < levels {
@@ -308,15 +310,15 @@ pub fn evaluate_grid(f: &Fit, axes: &[Vec<f64>]) -> (Vec<f64>, Vec<usize>) {
         let p: Vec<f64> = (0..ndim)
             .map(|d| {
                 let mut idx = k;
-                for dd in (d + 1)..ndim {
-                    idx /= shape[dd];
+                for &shape_dd in shape.iter().skip(d + 1) {
+                    idx /= shape_dd;
                 }
                 axes[d][idx % shape[d]]
             })
             .collect();
         let mut v = f.trend_c;
-        for d in 0..ndim {
-            v += f.trend_a[d] * p[d];
+        for (&ta, &pd) in f.trend_a.iter().zip(&p) {
+            v += ta * pd;
         }
         for lat in &f.lattices {
             v += lat.at(&p);

@@ -47,6 +47,7 @@ pub struct VariogramMap {
 
 /// Вычисление вариограммной карты.
 /// xs, ys, vs — координаты и значения точек.
+#[allow(clippy::too_many_arguments)]
 pub fn variogram_map(
     xs: &[f64],
     ys: &[f64],
@@ -116,8 +117,8 @@ pub fn variogram_map(
 
             // Пара и зеркало.
             for (sx, sy) in [(dx, dy), (-dx, -dy)] {
-                let ix = ((sx / cell).round() as i64 + n_bins as i64) as i64;
-                let iy = ((sy / cell).round() as i64 + n_bins as i64) as i64;
+                let ix = (sx / cell).round() as i64 + n_bins as i64;
+                let iy = (sy / cell).round() as i64 + n_bins as i64;
                 if ix >= 0 && (ix as usize) < size && iy >= 0 && (iy as usize) < size {
                     let k = (iy as usize) * size + (ix as usize);
                     s_g[k] += wp * g;
@@ -185,6 +186,7 @@ fn subsample(n: usize, m: usize, seed: u64) -> Vec<usize> {
 }
 
 /// Оценка анизотропии по карте: радиусы по направлениям.
+#[allow(clippy::too_many_arguments)]
 fn estimate_anisotropy(
     grid: &[f64],
     counts: &[f64],
@@ -233,7 +235,6 @@ fn estimate_anisotropy(
     let mut best_az = 0.0f64;
     let mut best_r = 0.0f64;
     let mut worst_r = f64::INFINITY;
-    let mut worst_az = 0.0f64;
     for &(az, r) in &ranges {
         if r > best_r {
             best_r = r;
@@ -241,7 +242,6 @@ fn estimate_anisotropy(
         }
         if r < worst_r {
             worst_r = r;
-            worst_az = az;
         }
     }
     if worst_r == f64::INFINITY {
