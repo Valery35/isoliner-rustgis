@@ -20,6 +20,7 @@ pub mod section_inter;
 pub mod topo_flow;
 pub mod topo_prep;
 pub mod variogram_map;
+pub mod volumes;
 pub mod density;
 pub mod drillhole;
 pub mod field_format;
