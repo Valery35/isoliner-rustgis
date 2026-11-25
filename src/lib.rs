@@ -15,6 +15,7 @@ pub mod isolines;
 pub mod mba;
 pub mod demo_fields;
 pub mod section;
+pub mod section_inter;
 pub mod variogram_map;
 pub mod density;
 pub mod drillhole;
