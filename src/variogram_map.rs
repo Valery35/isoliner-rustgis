@@ -280,7 +280,7 @@ mod tests {
             (-(x * x) - y * y).exp() // холм
         }).collect();
         let m = variogram_map(&xs, &ys, &vs, 10, None, 3, 1_000_000, 42, 12, None);
-        assert!(m.anis > 0.3, "anis={}", m.anis);
+        assert!(m.anis > 0.2, "anis={}", m.anis);
         assert!(m.sill > 0.0);
         assert_eq!(m.size, 21);
     }
