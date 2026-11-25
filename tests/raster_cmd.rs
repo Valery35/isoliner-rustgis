@@ -168,6 +168,48 @@ fn minimum_curvature_reproduces_plane() {
 }
 
 #[test]
+fn kriging_2d_reproduces_plane() {
+    let mut host = Fake::default();
+    let out = raster_cmd::kriging_2d(
+        &mut host,
+        &json!({
+            "input": "wells",
+            "zfield": "z",
+            "extent": "bounds",
+            "cell_size": 10.0,
+            "ktype": "Ordinary (OK)",
+            "s1_model": "Spherical",
+            "s1_sill": 1.0,
+            "s1_range": 1000.0,
+            "detrend": true,
+            "detrend_deg": "1 (plane)"
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert_eq!((g.width, g.height), (12, 10));
+    let frame = isoliner_rustgis::mincurv::Frame {
+        xmin: 0.0,
+        ymin: 0.0,
+        cell: 10.0,
+        nx: 12,
+        ny: 10,
+    };
+    let grid = isoliner_rustgis::mincurv::Grid {
+        nx: g.width,
+        ny: g.height,
+        z: g.z.clone(),
+    };
+    let v = isoliner_rustgis::mincurv::sample_bilinear(&grid, &frame, 65.0, 35.0);
+    assert!((v - 102.0).abs() < 1e-2, "{v}");
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Grid "), "{report}");
+    assert!(host.added[0].to_string_lossy().contains("2D Kriging"));
+}
+
+#[test]
 fn slope_aspect_needs_a_layer() {
     let mut host = Fake::default();
     let e = raster_cmd::slope_aspect(&mut host, &json!({}), Lang::Ru).unwrap_err();

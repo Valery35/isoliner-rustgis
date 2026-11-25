@@ -127,6 +127,7 @@ pub mod tab {
                 items: &[
                     Item::Menu(&CONTOURS),
                     Item::Command("slope-aspect"),
+                    Item::Command("kriging-2d"),
                     Item::Command("minimum-curvature"),
                 ],
             },
@@ -232,6 +233,10 @@ impl Product for Isoliner {
                     Err(e) => json!({"error": e}),
                 }
             }
+            "kriging-2d" => match crate::raster_cmd::kriging_2d(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
             "about" => json!({"ok": {
                 "title": "Isoliner",
                 "version": env!("CARGO_PKG_VERSION"),

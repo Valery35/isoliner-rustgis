@@ -15,10 +15,13 @@ use std::path::{Path, PathBuf};
 use rustgis_kit::{Call, Lang};
 use serde_json::{Value as J, json};
 
+use crate::args;
 use crate::geotiff;
+use crate::krige::{self, PolyTrend, Structure, Variogram};
 use crate::mincurv::{self, Frame, Params};
 use crate::points;
 use crate::pyfmt::{self, Arg};
+use crate::report::Report;
 use crate::topo_surface;
 
 /// Значение nodata выходов, как у модуля.
@@ -169,6 +172,24 @@ fn param_i64(params: &J, key: &str, default: i64) -> i64 {
         Some(J::String(s)) => s.trim().parse().unwrap_or(default),
         _ => default,
     }
+}
+
+/// Булев параметр команды: true для true/1/yes/да и т.п.
+fn param_bool(params: &J, key: &str, default: bool) -> bool {
+    match params.get(key) {
+        Some(J::Bool(b)) => *b,
+        Some(J::Number(n)) => n.as_i64().map_or(default, |v| v != 0),
+        Some(J::String(s)) => {
+            let t = s.trim().to_lowercase();
+            ["1", "true", "yes", "да", "y", "t", "истина"].contains(&t.as_str())
+        }
+        _ => default,
+    }
+}
+
+/// Строковый параметр команды.
+fn param_str<'a>(params: &'a J, key: &'a str) -> &'a str {
+    params.get(key).and_then(J::as_str).unwrap_or("")
 }
 
 /// Охват по координатам точек.
@@ -452,6 +473,409 @@ pub fn minimum_curvature(host: &mut dyn Call, params: &J, lang: Lang) -> Result<
                 "Skipped features without point geometry: %d.",
             ),
             &[Arg::from(pts.skipped as f64)],
+        ));
+    }
+    let nd = NODATA as f32;
+    let mut ok: Vec<f32> = out32.iter().copied().filter(|&v| v != nd).collect();
+    if !ok.is_empty() {
+        let lo = ok.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = ok.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let med = median_f32(&mut ok);
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Грид: от %.4g до %.4g, медиана %.4g.",
+                "Grid: from %.4g to %.4g, median %.4g.",
+            ),
+            &[Arg::from(f64::from(lo)), Arg::from(f64::from(hi)), Arg::from(med)],
+        ));
+    }
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// Перевести точки GeoJSON в `points::Points` для отсева и усреднения.
+fn geojson_to_points(geojson: &J) -> Result<points::Points, String> {
+    let mut p = points::Points::default();
+    for f in geojson["features"].as_array().unwrap_or(&Vec::new()) {
+        let geom = &f["geometry"];
+        let coords: Vec<J> = match geom["type"].as_str() {
+            Some("Point") => vec![geom["coordinates"].clone()],
+            Some("MultiPoint") => {
+                geom["coordinates"].as_array().cloned().unwrap_or_default().to_vec()
+            }
+            _ => continue,
+        };
+        for c in coords {
+            let a = c.as_array().ok_or("Bad point coordinates in GeoJSON.")?;
+            if a.len() < 2 {
+                continue;
+            }
+            let x = a[0]
+                .as_f64()
+                .filter(|v| v.is_finite())
+                .ok_or("Bad X coordinate.")?;
+            let y = a[1]
+                .as_f64()
+                .filter(|v| v.is_finite())
+                .ok_or("Bad Y coordinate.")?;
+            let z = a.get(2).and_then(|v| v.as_f64()).unwrap_or(f64::NAN);
+            p.xs.push(x);
+            p.ys.push(y);
+            p.vs.push(z);
+            p.ids.push(f.get("id").cloned().unwrap_or(J::Null));
+        }
+    }
+    if p.xs.len() < 2 {
+        return Err("Need at least 2 points with values.".to_string());
+    }
+    Ok(p)
+}
+
+/// Распознать модель вариограммы по строке выбора.
+fn parse_model(s: &str) -> Option<i64> {
+    match s.trim().to_lowercase().as_str() {
+        "spherical" | "сферическая" | "sph" | "1" => Some(1),
+        "exponential" | "экспоненциальная" | "exp" | "2" => Some(2),
+        "gaussian" | "гауссова" | "gau" | "3" => Some(3),
+        "power" | "степенная" | "pow" | "4" => Some(4),
+        _ => None,
+    }
+}
+
+/// 1.01 2D Kriging (точки → растр): команда `kriging-2d`.
+pub fn kriging_2d(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let input = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран точечный слой.", "No point layer is chosen.").to_string())?;
+    let zfield = params["zfield"].as_str().unwrap_or("");
+    let extent_layer = params["extent"].as_str().filter(|s| !s.is_empty());
+
+    let geo = host.call(
+        "host.features",
+        json!({"layer": input, "crs": "layer"}),
+    )?;
+    let mut pts = geojson_to_points(&geo)?;
+
+    // Поле значения: пусто - из Z геометрии, иначе из свойств.
+    if !zfield.is_empty() {
+        for (i, f) in geo["features"].as_array().unwrap_or(&Vec::new()).iter().enumerate() {
+            if i >= pts.vs.len() {
+                break;
+            }
+            pts.vs[i] = points::num(&f["properties"][zfield])
+                .filter(|v| v.is_finite())
+                .ok_or_else(|| format!("Point has no numeric value in field '{zfield}'."))?;
+        }
+    } else {
+        // Z уже взято в geojson_to_points; проверим, что оно конечно.
+        for (i, v) in pts.vs.iter().enumerate() {
+            if !v.is_finite() {
+                return Err(format!("Point {i} has no Z value in geometry."));
+            }
+        }
+    }
+
+    // Отсев ураганных проб.
+    let mut report = Report::default();
+    let val_min = params["val_min"].as_f64();
+    let val_max = params["val_max"].as_f64();
+    let val_pct = param_f64(params, "val_pct", 0.0).clamp(0.0, 49.0);
+    let val_cap = param_bool(params, "val_cap", false);
+    points::clip_outliers(
+        &mut pts,
+        points::Outliers {
+            vmin: val_min,
+            vmax: val_max,
+            pct: val_pct,
+            cap: val_cap,
+        },
+        &mut report,
+    )
+    .map_err(|e| e.text())?;
+    points::merge_coincident(&mut pts, &mut report);
+
+    // Логарифмирование.
+    let log_transform = param_bool(params, "log_transform", false);
+    if log_transform {
+        let n = pts.vs.len();
+        let mut n_drop = 0usize;
+        for v in &mut pts.vs {
+            if *v > 0.0 {
+                *v = v.ln();
+            } else {
+                *v = f64::NAN;
+                n_drop += 1;
+            }
+        }
+        pts.xs = pts
+            .xs
+            .iter()
+            .zip(&pts.vs)
+            .filter(|(_, v)| v.is_finite())
+            .map(|(x, _)| *x)
+            .collect();
+        pts.ys = pts
+            .ys
+            .iter()
+            .zip(&pts.vs)
+            .filter(|(_, v)| v.is_finite())
+            .map(|(y, _)| *y)
+            .collect();
+        pts.ids = pts
+            .ids
+            .iter()
+            .zip(&pts.vs)
+            .filter(|(_, v)| v.is_finite())
+            .map(|(id, _)| id.clone())
+            .collect();
+        pts.vs.retain(|v| v.is_finite());
+        if pts.vs.len() < 2 {
+            return Err(t(lang, "После логарифма осталось менее 2 точек.", "Less than 2 points after log transform.").to_string());
+        }
+        report.info(
+            "Логарифмирование: оставлено %d точек из %d (значения ≤ 0 отброшены: %d).",
+            args![pts.vs.len() as f64, n as f64, n_drop as f64],
+        );
+    }
+
+    // Снятие тренда.
+    let mut trend: Option<PolyTrend> = None;
+    if param_bool(params, "detrend", false) {
+        let deg_str = param_str(params, "detrend_deg");
+        let degree: usize = if deg_str.starts_with('2') { 2 } else { 1 };
+        let need = PolyTrend::n_terms(degree);
+        if pts.vs.len() > need {
+            let var0 = crate::numpy::var(&pts.vs);
+            let tr = PolyTrend::fit(&pts.xs, &pts.ys, &pts.vs, degree);
+            for (i, v) in pts.vs.iter_mut().enumerate() {
+                *v -= tr.at(pts.xs[i], pts.ys[i]);
+            }
+            let var1 = crate::numpy::var(&pts.vs);
+            let share = if var0 > 0.0 { 100.0 * (1.0 - var1 / var0) } else { 0.0 };
+            report.info(
+                "Снят тренд степени %d: убрано %.1f%% дисперсии.",
+                args![degree as f64, share],
+            );
+            trend = Some(tr);
+        } else {
+            report.warn(
+                "Снятие тренда отключено: точек %d, для степени %d нужно больше %d.",
+                args![pts.vs.len() as f64, degree as f64, need as f64],
+            );
+        }
+    }
+
+    // Охват.
+    let (xmin, ymin, xmax, ymax) = if let Some(el) = extent_layer {
+        let g = host.call("host.features", json!({"layer": el, "crs": "layer"}))?;
+        geojson_bbox(&g)?
+    } else {
+        points_bbox(&pts.xs, &pts.ys)
+    };
+    let width = xmax - xmin;
+    let height = ymax - ymin;
+    if width <= 0.0 || height <= 0.0 {
+        return Err(t(lang, "Охват сетки нулевой.", "Grid extent is zero.").to_string());
+    }
+
+    // Сетка.
+    let mut cell = param_f64(params, "cell_size", 0.0);
+    if cell <= 0.0 {
+        cell = (width.min(height) / 50.0).max(1e-12);
+    }
+    let nx = ((width / cell).ceil() as i64).max(2) as usize;
+    let ny = ((height / cell).ceil() as i64).max(2) as usize;
+    let xmn = xmin + 0.5 * cell;
+    let ymn = ymin + 0.5 * cell;
+
+    // Поиск.
+    let mut radius = param_f64(params, "radius", 0.0);
+    if radius <= 0.0 {
+        radius = width.hypot(height);
+    }
+    let rad2 = radius * radius;
+    let ndmin = param_i64(params, "min_points", 1).max(1) as usize;
+    let ndmax = param_i64(params, "max_points", 24).max(1) as usize;
+    let ktype = if param_str(params, "ktype").starts_with("Simple") { 0 } else { 1 };
+    let skmean = param_f64(params, "skmean", 0.0);
+
+    // Вариограмма.
+    let nugget = param_f64(params, "nugget", 0.0).max(0.0);
+    let model_code = parse_model(param_str(params, "s1_model")).unwrap_or(1);
+    let sill = param_f64(params, "s1_sill", 1.0).max(0.0);
+    let auto_range = width.max(height) / 3.0;
+    let mut range = param_f64(params, "s1_range", 0.0);
+    if model_code == 4 {
+        if range <= 0.0 {
+            range = 1.0;
+        } else if !(0.0..2.0).contains(&range) {
+            range = range.clamp(0.05, 1.999);
+        }
+    } else if range <= 0.0 {
+        range = auto_range;
+    }
+    let azimuth = param_f64(params, "s1_azimuth", 0.0);
+    let anis = param_f64(params, "s1_anis", 1.0).max(krige::EPS);
+    let vg = Variogram::new(
+        nugget,
+        &[Structure {
+            it: model_code,
+            cc: sill,
+            aa: range,
+            ang: azimuth,
+            anis,
+        }],
+    );
+
+    report.info(
+        "Сетка %d x %d, ячейка %.4g, точек %d, структур %d.",
+        args![nx as f64, ny as f64, cell, pts.vs.len() as f64, 1.0],
+    );
+    report.info(
+        "Дисперсия данных: %.4g. Ориентир: суммарный силл (C0 + C) близок к ней.",
+        args![crate::numpy::var(&pts.vs)],
+    );
+
+    // Кригинг по ячейкам.
+    let want_se = param_bool(params, "output_stderr", false);
+    let mut est = vec![NODATA; nx * ny];
+    let mut stderr = if want_se { Some(vec![NODATA; nx * ny]) } else { None };
+    let mut n_idw = 0usize;
+    for row in 0..ny {
+        let iy = ny - row;
+        let yloc = ymn + (iy - 1) as f64 * cell;
+        for ix in 0..nx {
+            let xloc = xmn + ix as f64 * cell;
+            let (e, v) = krige::solve_point(
+                xloc,
+                yloc,
+                &pts.xs,
+                &pts.ys,
+                &pts.vs,
+                &vg,
+                ktype,
+                skmean,
+                ndmin,
+                ndmax,
+                rad2,
+                NODATA,
+            );
+            let idx = row * nx + ix;
+            if e == NODATA {
+                continue;
+            }
+            if e.is_finite() {
+                est[idx] = e;
+                if let Some(se) = stderr.as_mut() {
+                    se[idx] = v.sqrt();
+                }
+            } else {
+                // Запас IDW: обратные расстояния до тех же соседей.
+                n_idw += 1;
+                let mut wsum = 0.0;
+                let mut num = 0.0;
+                for i in 0..pts.xs.len() {
+                    let dx = pts.xs[i] - xloc;
+                    let dy = pts.ys[i] - yloc;
+                    let h2 = dx * dx + dy * dy;
+                    let w = 1.0 / h2.max(krige::EPS);
+                    wsum += w;
+                    num += w * pts.vs[i];
+                }
+                if wsum > 0.0 {
+                    est[idx] = num / wsum;
+                    if let Some(se) = stderr.as_mut() {
+                        se[idx] = vg.maxcov.sqrt();
+                    }
+                }
+            }
+        }
+    }
+
+    // Возврат тренда.
+    if let Some(tr) = &trend {
+        let xs_cells: Vec<f64> = (0..nx).map(|ix| xmn + ix as f64 * cell).collect();
+        for row in 0..ny {
+            let iy = ny - row;
+            let yloc = ymn + (iy - 1) as f64 * cell;
+            for (ix, xloc) in xs_cells.iter().enumerate().take(nx) {
+                let idx = row * nx + ix;
+                if est[idx] != NODATA {
+                    est[idx] += tr.at(*xloc, yloc);
+                }
+            }
+        }
+    }
+
+    // Обратное логарифмирование.
+    if log_transform {
+        for v in est.iter_mut() {
+            if *v != NODATA {
+                *v = v.exp();
+            }
+        }
+        if let Some(se) = stderr.as_mut() {
+            for (i, v) in se.iter_mut().enumerate() {
+                if *v != NODATA {
+                    *v *= est[i];
+                }
+            }
+        }
+    }
+
+    // Запись GeoTIFF.
+    let dir = run_dir("kriging-2d")?;
+    let out_path = dir.join(format!(
+        "{}.tif",
+        t(lang, "Кригинг 2D", "2D Kriging")
+    ));
+    let out32: Vec<f32> = est
+        .iter()
+        .map(|&v| if v.is_finite() { v as f32 } else { NODATA as f32 })
+        .collect();
+    let grid = geotiff::Grid::from_geotransform(nx, ny, xmin, ymin, cell);
+    geotiff::write_like(&out_path, &grid, &out32, NODATA)?;
+    add_raster(host, &out_path)?;
+
+    if let Some(se) = stderr {
+        let se_path = dir.join(format!(
+            "{}.tif",
+            t(lang, "Стандартная ошибка кригинга", "Kriging standard error")
+        ));
+        let se32: Vec<f32> = se
+            .iter()
+            .map(|&v| if v.is_finite() { v as f32 } else { NODATA as f32 })
+            .collect();
+        geotiff::write_like(&se_path, &grid, &se32, NODATA)?;
+        add_raster(host, &se_path)?;
+    }
+
+    // Отчёт.
+    let mut lines: Vec<String> = report.lines.iter().map(|l| l.text()).collect();
+    let n_data = est.iter().filter(|&&v| v != NODATA).count();
+    lines.push(pyfmt::format(
+        t(
+            lang,
+            "Сетка %d x %d, ячейка %.4g. Оценённых ячеек: %d из %d.",
+            "Grid %d x %d, cell %.4g. Estimated cells: %d of %d.",
+        ),
+        &[
+            Arg::from(nx as f64),
+            Arg::from(ny as f64),
+            Arg::from(cell),
+            Arg::from(n_data as f64),
+            Arg::from(nx as f64 * ny as f64),
+        ],
+    ));
+    if n_idw > 0 {
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Ячеек, посчитанных запасом IDW: %d.",
+                "Cells estimated by IDW fallback: %d.",
+            ),
+            &[Arg::from(n_idw as f64)],
         ));
     }
     let nd = NODATA as f32;

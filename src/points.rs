@@ -156,7 +156,7 @@ pub fn read_points(
 }
 
 /// Отсев или срезка ураганных проб.
-fn clip_outliers(p: &mut Points, c: Outliers, report: &mut Report) -> Result<(), ToolError> {
+pub(crate) fn clip_outliers(p: &mut Points, c: Outliers, report: &mut Report) -> Result<(), ToolError> {
     if c.vmin.is_none() && c.vmax.is_none() && c.pct <= 0.0 {
         return Ok(());
     }
@@ -228,7 +228,7 @@ fn clip_outliers(p: &mut Points, c: Outliers, report: &mut Report) -> Result<(),
 /// Усреднение точек, совпавших до `span * 1e-7`. Ключ - координаты,
 /// округлённые к кратному допуска (половина - к чётному, как `np.round`),
 /// порядок - сортировка ключей, как у `np.unique(axis=0)`.
-fn merge_coincident(p: &mut Points, report: &mut Report) {
+pub(crate) fn merge_coincident(p: &mut Points, report: &mut Report) {
     let n = p.xs.len();
     let range = |a: &[f64]| {
         a.iter().copied().fold(f64::NEG_INFINITY, f64::max)
