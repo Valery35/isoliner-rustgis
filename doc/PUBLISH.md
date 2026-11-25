@@ -27,7 +27,7 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 | ВК | нужна ручная публикация |
 | Каталог RustGIS | https://github.com/opengeos/rustgis-plugins/pull/84 |
 | Сайт informpp.ru | не обновлялся |
-| RustGIS автора |  |
+| RustGIS автора | установлена 0.1.6 через rustgis-cli, SHA-256 совпадает |
 
 ### Isoliner для RustGIS 0.1.5 - 25 ноября 2026 года
 
