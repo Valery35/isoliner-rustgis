@@ -25,7 +25,7 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 | LinkedIn | нужна ручная публикация |
 | Facebook |  |
 | ВК | нужна ручная публикация |
-| Каталог RustGIS |  |
+| Каталог RustGIS | https://github.com/opengeos/rustgis-plugins/pull/84 |
 | Сайт informpp.ru | не обновлялся |
 | RustGIS автора |  |
 
