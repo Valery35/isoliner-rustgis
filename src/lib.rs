@@ -12,6 +12,7 @@
 pub mod declus;
 pub mod mba;
 pub mod demo_fields;
+pub mod variogram_map;
 pub mod density;
 pub mod drillhole;
 pub mod field_format;
