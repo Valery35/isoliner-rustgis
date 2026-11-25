@@ -10,6 +10,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod declus;
+pub mod mba;
 pub mod demo_fields;
 pub mod density;
 pub mod drillhole;
