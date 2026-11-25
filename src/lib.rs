@@ -21,6 +21,7 @@ pub mod topo_flow;
 pub mod topo_ext;
 pub mod topo_form;
 pub mod topo_break;
+pub mod topo_gauge;
 pub mod topo_prep;
 pub mod variogram_map;
 pub mod volumes;
