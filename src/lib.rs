@@ -14,6 +14,7 @@ pub mod dem_merge;
 pub mod isolines;
 pub mod mba;
 pub mod demo_fields;
+pub mod section;
 pub mod variogram_map;
 pub mod density;
 pub mod drillhole;
