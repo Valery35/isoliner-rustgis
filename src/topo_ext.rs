@@ -39,7 +39,7 @@ pub fn peaks_pits(
     window: usize,
     min_prominence: f64,
 ) -> Vec<PeakPit> {
-    let w = if window % 2 == 0 { window + 1 } else { window };
+    let w = if window.is_multiple_of(2) { window + 1 } else { window };
     let half = (w / 2) as isize;
     let mut out = Vec::new();
 

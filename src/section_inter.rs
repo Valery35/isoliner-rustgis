@@ -9,6 +9,9 @@
 
 use std::collections::HashMap;
 
+/// Карта узлов: координата → [(номер отрезка, ключ другого конца)].
+type NodeMap = HashMap<(i64, i64), Vec<(usize, (i64, i64))>>;
+
 /// Кажущийся угол падения на вертикальном разрезе.
 /// tg(видимый) = tg(истинный) · cos(азимут_падения - азимут_разреза).
 /// Возвращает (dz_dd, app_deg): уклон следа и видимый угол.
@@ -70,7 +73,7 @@ pub fn chain_segments(segs: &[(f64, f64, f64, f64)], tol: f64) -> Vec<Chain> {
     };
 
     // Узел → список (номер отрезка, ключ другого конца).
-    let mut nodes: HashMap<(i64, i64), Vec<(usize, (i64, i64))>> = HashMap::new();
+    let mut nodes: NodeMap = HashMap::new();
     let mut pts_of: HashMap<(i64, i64), (f64, f64)> = HashMap::new();
     let mut alive: Vec<bool> = Vec::new();
     let mut segments: Vec<((i64, i64), (i64, i64))> = Vec::new();
@@ -93,7 +96,7 @@ pub fn chain_segments(segs: &[(f64, f64, f64, f64)], tol: f64) -> Vec<Chain> {
     // Идёт от узла, пока есть неиспользованные отрезки.
     let walk = |start: &(i64, i64),
                 alive: &mut Vec<bool>,
-                nodes: &HashMap<(i64, i64), Vec<(usize, (i64, i64))>>|
+                nodes: &NodeMap|
      -> Vec<(i64, i64)> {
         let mut chain = vec![*start];
         let mut cur = *start;
@@ -146,7 +149,7 @@ pub fn chain_segments(segs: &[(f64, f64, f64, f64)], tol: f64) -> Vec<Chain> {
             if pts.len() < 2 {
                 continue;
             }
-            let closed = chain[0] == *chain.last().unwrap() && chain.len() >= 4;
+            let closed = chain[0] == chain[chain.len() - 1] && chain.len() >= 4;
             let trimmed: Vec<(f64, f64)> = if closed {
                 pts[..pts.len() - 1].to_vec()
             } else {
@@ -156,7 +159,7 @@ pub fn chain_segments(segs: &[(f64, f64, f64, f64)], tol: f64) -> Vec<Chain> {
                 0.0
             } else {
                 let (d0, z0) = trimmed[0];
-                let (dn, zn) = *trimmed.last().unwrap();
+                let (dn, zn) = trimmed[trimmed.len() - 1];
                 ((d0 - dn).powi(2) + (z0 - zn).powi(2)).sqrt()
             };
             out.push(Chain { pts: trimmed, closed, gap });
@@ -213,8 +216,8 @@ pub fn profile_from_lines(parts: &[Vec<(f64, f64)>], keep_high: bool) -> Vec<(f6
     // Убираем дубли по d, беря max или min.
     let mut out: Vec<(f64, f64)> = Vec::new();
     for &(d, z) in &all {
-        if let Some(last) = out.last_mut() {
-            if (last.0 - d).abs() < 1e-12 {
+        if let Some(last) = out.last_mut()
+            && (last.0 - d).abs() < 1e-12 {
                 if keep_high {
                     last.1 = last.1.max(z);
                 } else {
@@ -222,7 +225,6 @@ pub fn profile_from_lines(parts: &[Vec<(f64, f64)>], keep_high: bool) -> Vec<(f6
                 }
                 continue;
             }
-        }
         out.push((d, z));
     }
     out
@@ -278,14 +280,14 @@ mod tests {
     /// Разрез вкрест простирания: видимый угол равен истинному.
     #[test]
     fn dip_along_section() {
-        let (dz, app) = apparent_dip(30.0, 45.0, 45.0);
+        let (_dz, app) = apparent_dip(30.0, 45.0, 45.0);
         assert!((app - 30.0).abs() < 1e-10, "app={}", app);
     }
 
     /// Разрез по простиранию: видимый угол ноль.
     #[test]
     fn dip_perpendicular() {
-        let (dz, app) = apparent_dip(30.0, 45.0, 135.0);
+        let (_dz, app) = apparent_dip(30.0, 45.0, 135.0);
         assert!(app.abs() < 1e-10, "app={}", app);
     }
 

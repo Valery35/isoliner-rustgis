@@ -94,8 +94,8 @@ pub fn interpolate_polyline(
             out.push(vertices[0]);
             continue;
         }
-        if d >= *dists.last().unwrap() {
-            out.push(*vertices.last().unwrap());
+        if d >= dists[dists.len() - 1] {
+            out.push(vertices[vertices.len() - 1]);
             continue;
         }
         // Поиск сегмента.
@@ -134,13 +134,13 @@ pub fn stations(vertices: &[(f64, f64)], step: f64) -> Vec<(f64, f64, f64)> {
         }
         d
     };
-    let total = *dists.last().unwrap();
+    let total = dists[dists.len() - 1];
     let n = (total / step).floor() as usize + 1;
     let mut ds = Vec::with_capacity(n);
     for i in 0..n {
         ds.push(i as f64 * step);
     }
-    if *ds.last().unwrap() < total {
+    if ds[ds.len() - 1] < total {
         ds.push(total);
     }
     let pts = interpolate_polyline(vertices, &dists, &ds);
@@ -310,7 +310,7 @@ mod tests {
             gt,
         };
         let res = build_section(&vertices, &[s_top, s_bot], 10.0, 1.0);
-        assert!(res.rings.len() >= 1, "должен быть хотя бы один пласт, rings={}", res.rings.len());
+        assert!(!res.rings.is_empty(), "должен быть хотя бы один пласт, rings={}", res.rings.len());
         assert!(res.length > 0.0);
         assert!((res.zmax - 10.0).abs() < 1e-10);
     }

@@ -77,8 +77,7 @@ pub fn flow_accumulation(
     const OFF: [(isize, isize); 8] = [
         (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0),
     ];
-    for k in 0..n {
-        let d = dir[k];
+    for (k, &d) in dir.iter().enumerate().take(n) {
         if d < 0 {
             continue;
         }
@@ -227,8 +226,7 @@ pub fn watershed(
 
     // Обратные зависимости: кто вливается в кого.
     let mut inflow: Vec<Vec<usize>> = vec![Vec::new(); n];
-    for k in 0..n {
-        let d = dir[k];
+    for (k, &d) in dir.iter().enumerate().take(n) {
         if d < 0 {
             continue;
         }
@@ -306,10 +304,10 @@ mod tests {
         let rows = 5;
         let cols = 5;
         let z: Vec<f64> = (0..rows)
-            .flat_map(|r| (0..cols).map(move |c| 10.0 - c as f64))
+            .flat_map(|_r| (0..cols).map(move |c| 10.0 - c as f64))
             .collect();
         let dir = d8_flow(&z, rows, cols, -9999.0);
-        let acc = flow_accumulation(&dir, None, rows, cols, -9999.0);
+        let _acc = flow_accumulation(&dir, None, rows, cols, -9999.0);
         // Водосбор от правого нижнего угла.
         let ws = watershed(&dir, rows, cols, 2, 4);
         // Правый край — всё вливается в него.

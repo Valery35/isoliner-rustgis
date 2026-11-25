@@ -50,8 +50,8 @@ impl Default for ContourOptions {
 /// Вычисление уровней: явные или по интервалу.
 pub fn compute_levels(
     data: &[f64],
-    rows: usize,
-    cols: usize,
+    _rows: usize,
+    _cols: usize,
     opts: &ContourOptions,
 ) -> Vec<f64> {
     if !opts.levels.is_empty() {
@@ -251,7 +251,7 @@ fn chain_segments(
 
         // Вперёд от конца.
         loop {
-            let ex = *xy.last().unwrap();
+            let ex = xy[xy.len() - 1];
             let ey = xy[xy.len() - 1];
             let k = key(ex, ey);
             let mut found = false;
@@ -326,14 +326,6 @@ fn chain_segments(
 
         // Преобразование в координаты через gt.
         let gt = &opts.gt;
-        for k in 0..xy.len() {
-            let c = xy[k]; // column
-            let mut ri = k + 1;
-            if k % 2 == 1 {
-                ri = k;
-            }
-            let _ = ri;
-        }
         // Простое преобразование: x = gt[0] + col * gt[1], y = gt[3] + row * gt[5].
         for k in (0..xy.len()).step_by(2) {
             let col = xy[k];

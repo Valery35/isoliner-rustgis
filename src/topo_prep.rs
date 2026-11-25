@@ -138,7 +138,7 @@ fn heap_pop(heap: &mut Vec<(f64, usize)>) -> Option<(f64, usize)> {
         return None;
     }
     let top = heap[0];
-    let last = heap.pop().unwrap();
+    let last = heap.pop().unwrap_or(top);
     if !heap.is_empty() {
         heap[0] = last;
         sift_down(heap, 0);

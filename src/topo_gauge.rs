@@ -38,6 +38,7 @@ pub struct GaugeReport {
 }
 
 /// 2.15 Отчёт по створу: морфометрия водосбора от точки.
+#[allow(clippy::too_many_arguments)]
 pub fn gauge_report(
     z: &[f64],
     dir: &[i32],
@@ -127,11 +128,6 @@ fn trace_upstream(
     const OFF: [(isize, isize); 8] = [
         (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0),
     ];
-    const DIST: [f64; 8] = [
-        std::f64::consts::SQRT_2, 1.0, std::f64::consts::SQRT_2, 1.0,
-        std::f64::consts::SQRT_2, 1.0, std::f64::consts::SQRT_2, 1.0,
-    ];
-
     // Обратные: кто вливается в кого.
     let n = rows * cols;
     let mut inflow: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -157,6 +153,7 @@ fn trace_upstream(
     let mut best = 0.0f64;
 
     // DFS: для каждого соседа вливающегося в текущий, рекурсивно.
+    #[allow(clippy::too_many_arguments)]
     fn dfs(
         k: usize,
         dir: &[i32],
@@ -164,7 +161,6 @@ fn trace_upstream(
         basin: &[bool],
         visited: &mut Vec<bool>,
         acc: f64,
-        cols: usize,
         best: &mut f64,
     ) {
         if acc > *best {
@@ -181,15 +177,16 @@ fn trace_upstream(
             } else {
                 1.0
             };
-            dfs(up, dir, inflow, basin, visited, acc + dist, cols, best);
+            dfs(up, dir, inflow, basin, visited, acc + dist, best);
         }
     }
 
-    dfs(outlet, dir, &inflow, basin, &mut visited, 0.0, cols, &mut best);
+    dfs(outlet, dir, &inflow, basin, &mut visited, 0.0, &mut best);
     best * cell
 }
 
 /// Высота на заданном расстоянии вверх по водотоку.
+#[allow(clippy::too_many_arguments)]
 fn sample_upstream(
     dir: &[i32],
     z: &[f64],
@@ -214,8 +211,8 @@ fn sample_upstream(
         let r = k / cols;
         let c = k % cols;
         let mut next = None;
-        for d in 0..8 {
-            let (dr, dc) = OFF[d];
+        for (d, (dr, dc)) in OFF.iter().enumerate() {
+            let (dr, dc) = (*dr, *dc);
             let nr = r as isize + dr;
             let nc = c as isize + dc;
             if nr < 0 || nr >= rows as isize || nc < 0 || nc >= cols as isize {
@@ -300,7 +297,7 @@ pub fn line_catchment(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::topo_flow::{d8_flow, flow_accumulation};
+    use crate::topo_flow::d8_flow;
 
     /// Один холм: водосбор охватывает весь склон.
     #[test]
@@ -330,7 +327,7 @@ mod tests {
         let rows = 11;
         let cols = 11;
         let z: Vec<f64> = (0..rows)
-            .flat_map(|r| (0..cols).map(move |c| 10.0 - r as f64))
+            .flat_map(|r| (0..cols).map(move |_c| 10.0 - r as f64))
             .collect();
         let dir = d8_flow(&z, rows, cols, -9999.0);
         let gt = [0.0, 1.0, 0.0, 11.0, 0.0, -1.0];

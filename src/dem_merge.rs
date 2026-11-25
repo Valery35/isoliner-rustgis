@@ -13,7 +13,7 @@
 /// Вес детальной поверхности: 1 внутри, 0 за буфером, плавно в кольце.
 /// Переход: 1 - t²(3 - 2t), нулевая производная на обоих концах.
 pub fn blend_weights(mask: &[bool], rows: usize, cols: usize, width_px: f64) -> Vec<f64> {
-    let n = rows * cols;
+    let _n = rows * cols;
     if width_px <= 0.0 {
         return mask.iter().map(|&m| if m { 1.0 } else { 0.0 }).collect();
     }
@@ -47,10 +47,10 @@ pub fn distance_to_mask(mask: &[bool], rows: usize, cols: usize) -> Vec<f64> {
                 best = best.min(dist[r * cols + c - 1] + 1.0);
             }
             if r > 0 && c > 0 {
-                best = best.min(dist[(r - 1) * cols + c - 1] + 1.4142);
+                best = best.min(dist[(r - 1) * cols + c - 1] + std::f64::consts::SQRT_2);
             }
             if r > 0 && c + 1 < cols {
-                best = best.min(dist[(r - 1) * cols + c + 1] + 1.4142);
+                best = best.min(dist[(r - 1) * cols + c + 1] + std::f64::consts::SQRT_2);
             }
             dist[k] = best;
         }
@@ -70,10 +70,10 @@ pub fn distance_to_mask(mask: &[bool], rows: usize, cols: usize) -> Vec<f64> {
                 best = best.min(dist[r * cols + c + 1] + 1.0);
             }
             if r + 1 < rows && c + 1 < cols {
-                best = best.min(dist[(r + 1) * cols + c + 1] + 1.4142);
+                best = best.min(dist[(r + 1) * cols + c + 1] + std::f64::consts::SQRT_2);
             }
             if r + 1 < rows && c > 0 {
-                best = best.min(dist[(r + 1) * cols + c - 1] + 1.4142);
+                best = best.min(dist[(r + 1) * cols + c - 1] + std::f64::consts::SQRT_2);
             }
             dist[k] = best;
         }
@@ -117,13 +117,13 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
 }
 
 /// Медиана.
-fn median(v: &mut Vec<f64>) -> f64 {
+fn median(v: &mut [f64]) -> f64 {
     if v.is_empty() {
         return 0.0;
     }
     v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let n = v.len();
-    if n % 2 == 0 {
+    if n.is_multiple_of(2) {
         (v[n / 2 - 1] + v[n / 2]) / 2.0
     } else {
         v[n / 2]
@@ -255,8 +255,11 @@ pub fn merge(
                     }
                     for row_i in (col + 1)..dim {
                         let f = ata[row_i][col] / piv;
-                        for j in col..dim {
-                            ata[row_i][j] -= f * ata[col][j];
+                        let (above, below) = ata.split_at_mut(row_i);
+                        let row_col = &above[col];
+                        let row_row_i = &mut below[0];
+                        for (j, ata_row_i_j) in row_row_i.iter_mut().enumerate().skip(col) {
+                            *ata_row_i_j -= f * row_col[j];
                         }
                         atb[row_i] -= f * atb[col];
                     }
@@ -273,10 +276,10 @@ pub fn merge(
                 }
                 // Применяем ко всему полю.
                 let mut out = vec![0.0f64; n];
-                for k in 0..n {
+                for (k, o) in out.iter_mut().enumerate() {
                     let x = (k % cols) as f64;
                     let y = (k / cols) as f64;
-                    out[k] = sol[0] * x + sol[1] * y + sol[2];
+                    *o = sol[0] * x + sol[1] * y + sol[2];
                 }
                 out
             }

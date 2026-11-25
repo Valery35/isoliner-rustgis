@@ -74,7 +74,7 @@ mod tests {
         let res = build_section(section_line, &surfaces, 5.0, 1.0);
         // Шесть поверхностей → пять колец.
         // Внутри линии все поверхности валидны (внутри сетки 100×100).
-        assert!(res.rings.len() >= 1, "rings={}, все z NAN?", res.rings.len());
+        assert!(!res.rings.is_empty(), "rings={}, все z NAN?", res.rings.len());
     }
 
     /// Поверхности лежат стопкой: верхняя выше нижней.
@@ -82,7 +82,7 @@ mod tests {
     fn stacked() {
         let surfaces = demo_surfaces(50, 50);
         // Точка в центре.
-        let gt = [0.0, 1.0, 0.0, 50.0, 0.0, -1.0];
+        let _gt = [0.0, 1.0, 0.0, 50.0, 0.0, -1.0];
         let (r, c) = (25usize, 25usize);
         let idx = r * 50 + c;
         for s in 0..5 {

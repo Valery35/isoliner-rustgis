@@ -73,15 +73,15 @@ mod tests {
     /// В половине выемка, в половине насыпь.
     #[test]
     fn half_cut_half_fill() {
-        let mut ground = vec![10.0f64; 10];
+        let ground = vec![10.0f64; 10];
         let mut plan = vec![10.0f64; 10];
         // Половина: снять 5.
-        for k in 0..5 {
-            plan[k] = 5.0;
+        for p in plan.iter_mut().take(5) {
+            *p = 5.0;
         }
         // Половина: насыпить 3.
-        for k in 5..10 {
-            plan[k] = 13.0;
+        for p in plan.iter_mut().skip(5).take(5) {
+            *p = 13.0;
         }
         let rep = cut_fill(&ground, &plan, 2.0, -9999.0);
         assert!((rep.cut - 50.0).abs() < 1e-10, "cut={}", rep.cut);
