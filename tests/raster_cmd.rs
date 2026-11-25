@@ -28,16 +28,18 @@ fn data(name: &str) -> PathBuf {
 struct Fake {
     added: Vec<PathBuf>,
     exported: Vec<String>,
+    rasters: std::collections::HashMap<String, PathBuf>,
 }
 
 impl Call for Fake {
     fn call(&mut self, op: &str, params: J) -> Result<J, String> {
         match op {
             "share.exportRaster" => {
-                self.exported
-                    .push(params["layer"].as_str().unwrap().to_string());
+                let layer = params["layer"].as_str().unwrap().to_string();
+                self.exported.push(layer.clone());
                 let to = params["path"].as_str().unwrap();
-                std::fs::copy(data("dem_small.tif"), to).map_err(|e| e.to_string())?;
+                let src = self.rasters.get(&layer).cloned().unwrap_or_else(|| data("dem_small.tif"));
+                std::fs::copy(src, to).map_err(|e| e.to_string())?;
                 Ok(json!({"path": to}))
             }
             "host.features" => {
@@ -85,6 +87,11 @@ fn bounds_geojson() -> J {
             "properties": {}
         }]
     })
+}
+
+fn write_grid(path: &Path, z: &[f32], nx: usize, ny: usize, cell: f64, xmin: f64, ymin: f64) {
+    let grid = geotiff::Grid::from_geotransform(nx, ny, xmin, ymin, cell);
+    geotiff::write_like(path, &grid, z, -9999.0).unwrap();
 }
 
 fn f32s(name: &str) -> Vec<f32> {
@@ -207,6 +214,92 @@ fn kriging_2d_reproduces_plane() {
     let report = out["report"].as_str().unwrap();
     assert!(report.contains("Grid "), "{report}");
     assert!(host.added[0].to_string_lossy().contains("2D Kriging"));
+}
+
+#[test]
+fn probability_threshold_computes_cdf() {
+    let mut host = Fake::default();
+    let dir = std::env::temp_dir().join(format!("isoprobtest-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let est_path = dir.join("est.tif");
+    let se_path = dir.join("se.tif");
+    // estimate = 10 всюду, stderr = 1 всюду, threshold = 11
+    // above: z = (10-11)/1 = -1 -> P(Z > -1) = 0.8413
+    // below: z = (11-10)/1 = 1 -> P(Z < 1) = 0.8413
+    write_grid(&est_path, &vec![10.0f32; 12 * 10], 12, 10, 10.0, 0.0, 0.0);
+    write_grid(&se_path, &vec![1.0f32; 12 * 10], 12, 10, 10.0, 0.0, 0.0);
+    host.rasters.insert("est".to_string(), est_path.clone());
+    host.rasters.insert("se".to_string(), se_path.clone());
+
+    let out = raster_cmd::probability_threshold(
+        &mut host,
+        &json!({
+            "estimate": "est",
+            "stderr": "se",
+            "threshold": 9.0,
+            "side": "Above threshold (P(Z > t))"
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert!((g.z[0] - 0.8413).abs() < 1e-3, "{}", g.z[0]);
+    assert!(out["report"].as_str().unwrap().contains("Cells with probability"));
+}
+
+#[test]
+fn flow_gradient_adds_two_rasters() {
+    let mut host = Fake::default();
+    let out = raster_cmd::flow_gradient(&mut host, &json!({"input": "dem"}), Lang::En).unwrap();
+    assert_eq!(host.exported, ["dem"]);
+    assert_eq!(host.added.len(), 2);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.starts_with("Gradient: from "), "{report}");
+    assert!(host.added[0].to_string_lossy().contains("Hydraulic gradient"));
+    assert!(host.added[1].to_string_lossy().contains("Flow direction"));
+}
+
+#[test]
+fn subsidence_tilt_curvature_adds_five_rasters() {
+    let mut host = Fake::default();
+    let out = raster_cmd::subsidence_tilt_curvature(
+        &mut host,
+        &json!({
+            "input": "dem",
+            "units": "Millimeters",
+            "sign": "Positive down",
+            "base": 15.0,
+            "reduce": false
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.exported, ["dem"]);
+    assert_eq!(host.added.len(), 5);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Base "), "{report}");
+}
+
+#[test]
+fn subsidence_horizontal_adds_raster() {
+    let mut host = Fake::default();
+    let out = raster_cmd::subsidence_horizontal(
+        &mut host,
+        &json!({
+            "curv": "dem",
+            "formula": "ε = mₑ·K·L (current guidelines)",
+            "half_l": 100.0,
+            "depth": 300.0,
+            "boundary": "Permanent (δ₀ = 55°)"
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.exported, ["dem"]);
+    assert_eq!(host.added.len(), 1);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Half-trough length"), "{report}");
 }
 
 #[test]

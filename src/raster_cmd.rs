@@ -896,6 +896,469 @@ pub fn kriging_2d(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, Stri
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// Аппроксимация erf(x) по Abramowitz & Stegun 7.1.26.
+fn erf(x: f64) -> f64 {
+    let a1 = 0.254_829_592;
+    let a2 = -0.284_496_736;
+    let a3 = 1.421_413_741;
+    let a4 = -1.453_152_027;
+    let a5 = 1.061_405_429;
+    let p = 0.327_591_1;
+    let sign = x.signum();
+    let x = x.abs();
+    let t = 1.0 / (1.0 + p * x);
+    let y = 1.0
+        - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1)
+            * t
+            * (-x * x).exp();
+    sign * y
+}
+
+/// Стандартная нормальная CDF Φ(x).
+fn normal_cdf(x: f64) -> f64 {
+    0.5 * (1.0 + erf(x / std::f64::consts::SQRT_2))
+}
+
+/// 3.03 Карта вероятности превышения: команда `probability-threshold`.
+/// `side` = "above" даёт P(Z > t), "below" - P(Z < t).
+pub fn probability_threshold(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let est_layer = params["estimate"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр оценки.", "No estimate raster is chosen.").to_string())?;
+    let se_layer = params["stderr"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбран растр стандартной ошибки.",
+                "No standard-error raster is chosen.",
+            )
+            .to_string()
+        })?;
+    let threshold = param_f64(params, "threshold", 0.0);
+    let side = param_str(params, "side");
+    let below = side.starts_with("Below");
+
+    let dir = run_dir("probability-threshold")?;
+    let est_grid = export_raster(host, est_layer, &dir)?;
+    let se_grid = export_raster(host, se_layer, &dir)?;
+    if est_grid.width != se_grid.width || est_grid.height != se_grid.height {
+        return Err(t(
+            lang,
+            "Размеры растров оценки и ошибки не совпадают.",
+            "Estimate and standard-error rasters have different sizes.",
+        )
+        .to_string());
+    }
+    let _cell = geotiff::square_cell(est_grid.cell, 1e-3).map_err(|_| {
+        t(
+            lang,
+            "Ячейка растра не квадратная.",
+            "The raster cell is not square.",
+        )
+        .to_string()
+    })?;
+
+    let nd = NODATA as f32;
+    let mut prob: Vec<f32> = Vec::with_capacity(est_grid.z.len());
+    let mut n_ok = 0usize;
+    for i in 0..est_grid.z.len() {
+        let e = est_grid.z[i];
+        let s = se_grid.z[i];
+        let valid = e.is_finite() && s.is_finite() && s > 0.0;
+        if !valid || est_grid.mask[i] || se_grid.mask[i] {
+            prob.push(nd);
+            continue;
+        }
+        let z = if below {
+            (threshold - e) / s
+        } else {
+            (e - threshold) / s
+        };
+        let p = normal_cdf(z).clamp(0.0, 1.0);
+        prob.push(p as f32);
+        n_ok += 1;
+    }
+
+    let out_path = dir.join(format!(
+        "{}.tif",
+        t(
+            lang,
+            "Вероятность превышения",
+            "Probability of exceedance"
+        )
+    ));
+    geotiff::write_like(&out_path, &est_grid, &prob, NODATA)?;
+    add_raster(host, &out_path)?;
+
+    let mut lines = Vec::new();
+    lines.push(pyfmt::format(
+        t(
+            lang,
+            "Ячеек с вероятностью: %d из %d. Порог %.4g, сторона %s.",
+            "Cells with probability: %d of %d. Threshold %.4g, side %s.",
+        ),
+        &[
+            Arg::from(n_ok as f64),
+            Arg::from(prob.len() as f64),
+            Arg::from(threshold),
+            Arg::from(if below { "below" } else { "above" }),
+        ],
+    ));
+    let mut ok: Vec<f32> = prob.iter().copied().filter(|&v| v != nd).collect();
+    if !ok.is_empty() {
+        let lo = ok.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = ok.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let med = median_f32(&mut ok);
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Вероятности: от %.4g до %.4g, медиана %.4g.",
+                "Probabilities: from %.4g to %.4g, median %.4g.",
+            ),
+            &[Arg::from(f64::from(lo)), Arg::from(f64::from(hi)), Arg::from(med)],
+        ));
+    }
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 3.04 Гидравлический градиент и направление потока: команда `flow-gradient`.
+pub fn flow_gradient(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр напора.", "No head raster is chosen.").to_string())?;
+    let dir = run_dir("flow-gradient")?;
+    let g = export_raster(host, layer, &dir)?;
+    let cell = geotiff::square_cell(g.cell, 1e-3).map_err(|(cx, cy)| {
+        pyfmt::format(
+            t(
+                lang,
+                "Ячейка растра не квадратная: %.6g по X и %.6g по Y.",
+                "The raster cell is not square: %.6g in X and %.6g in Y.",
+            ),
+            &[Arg::from(cx), Arg::from(cy)],
+        )
+    })?;
+
+    let (mag, az) = crate::hydro::head_gradient(&g.z, g.width, g.height, cell, cell, NODATA);
+    let to32 = |v: &[f64]| -> Vec<f32> {
+        v.iter()
+            .map(|&x| if x.is_finite() { x as f32 } else { NODATA as f32 })
+            .collect()
+    };
+    let (m32, a32) = (to32(&mag), to32(&az));
+    let p_mag = dir.join(format!(
+        "{}.tif",
+        t(lang, "Гидравлический градиент", "Hydraulic gradient")
+    ));
+    let p_az = dir.join(format!(
+        "{}.tif",
+        t(lang, "Направление потока", "Flow direction")
+    ));
+    geotiff::write_like(&p_mag, &g, &m32, NODATA)?;
+    geotiff::write_like(&p_az, &g, &a32, NODATA)?;
+    add_raster(host, &p_mag)?;
+    add_raster(host, &p_az)?;
+
+    let nd = NODATA as f32;
+    let mut ok: Vec<f32> = m32.iter().copied().filter(|&v| v != nd).collect();
+    let mut lines = Vec::new();
+    if ok.is_empty() {
+        lines.push(
+            t(
+                lang,
+                "Градиент не посчитан ни в одной ячейке. Во входном растре нет данных или всё на границе.",
+                "Gradient was not computed in a single cell: the input raster has no data or everything is on the edge.",
+            )
+            .to_string(),
+        );
+    } else {
+        let lo = ok.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = ok.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let n_ok = ok.len();
+        let med = median_f32(&mut ok);
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Градиент: от %.4g до %.4g, медиана %.4g.",
+                "Gradient: from %.4g to %.4g, median %.4g.",
+            ),
+            &[Arg::from(f64::from(lo)), Arg::from(f64::from(hi)), Arg::from(med)],
+        ));
+        let n_flat = m32
+            .iter()
+            .zip(&a32)
+            .filter(|&(&m, &a)| m != nd && a == nd)
+            .count();
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Ячеек с данными %d из %d, из них плоских без направления %d.",
+                "Cells with data %d of %d, of them flat with no direction %d.",
+            ),
+            &[Arg::from(n_ok as f64), Arg::from(m32.len() as f64), Arg::from(n_flat as f64)],
+        ));
+    }
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 9.01 Наклоны и кривизна по оседаниям: команда `subsidence-tilt-curvature`.
+pub fn subsidence_tilt_curvature(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран грид оседаний.", "No subsidence grid is chosen.").to_string())?;
+    let units = param_str(params, "units");
+    let sign = param_str(params, "sign");
+    let base = param_f64(params, "base", 15.0).max(0.1);
+    let reduce = param_bool(params, "reduce", true);
+
+    let dir = run_dir("subsidence-tilt-curvature")?;
+    let g = export_raster(host, layer, &dir)?;
+    let cell = geotiff::square_cell(g.cell, 1e-3).map_err(|(cx, cy)| {
+        pyfmt::format(
+            t(
+                lang,
+                "Ячейка растра не квадратная: %.6g по X и %.6g по Y.",
+                "The raster cell is not square: %.6g in X and %.6g in Y.",
+            ),
+            &[Arg::from(cx), Arg::from(cy)],
+        )
+    })?;
+
+    // Перевод в метры, положительные вниз.
+    let to_meters = if units.starts_with("метры") || units.starts_with("meters") {
+        1.0
+    } else {
+        0.001
+    };
+    let flip = sign.starts_with("оседание со знаком минус")
+        || sign.starts_with("negative")
+        || sign.starts_with("minus");
+    let mut z_m: Vec<f64> = g
+        .z
+        .iter()
+        .map(|&v| {
+            if v.is_finite() && v != NODATA {
+                let s = if flip { -v } else { v };
+                s * to_meters
+            } else {
+                f64::NAN
+            }
+        })
+        .collect();
+    if sign.starts_with("определить") || sign.starts_with("auto") {
+        // Если большинство отрицательно — инвертируем (разность отметок).
+        let finite: Vec<f64> = z_m.iter().copied().filter(|v| v.is_finite()).collect();
+        if !finite.is_empty() {
+            let neg = finite.iter().filter(|&&v| v < 0.0).count();
+            if neg * 2 > finite.len() {
+                for v in &mut z_m {
+                    if v.is_finite() {
+                        *v = -*v;
+                    }
+                }
+            }
+        }
+    }
+
+    let res = crate::subsidence::grid_deformations(&z_m, g.width, g.height, cell, base, reduce);
+    let qi = if reduce { crate::subsidence::q_tilt(base) } else { 1.0 };
+    let qk = if reduce { crate::subsidence::q_curv(base) } else { 1.0 };
+
+    let to32 = |v: &[f64]| -> Vec<f32> {
+        v.iter()
+            .map(|&x| if x.is_finite() { x as f32 } else { NODATA as f32 })
+            .collect()
+    };
+    let write = |name_key: &str, data: &[f64], scale: f64| -> Result<PathBuf, String> {
+        let scaled: Vec<f64> = data.iter().map(|&v| if v.is_finite() { v * scale } else { v }).collect();
+        let path = dir.join(format!("{}.tif", name_key));
+        geotiff::write_like(&path, &g, &to32(&scaled), NODATA)?;
+        Ok(path)
+    };
+
+    let p_tilt = write(
+        t(lang, "Наклон", "Tilt"),
+        &res.tilt,
+        1000.0,
+    )?;
+    let p_az = write(
+        t(lang, "Азимут наклона", "Tilt azimuth"),
+        &res.azimuth,
+        1.0,
+    )?;
+    let p_kdir = write(
+        t(lang, "Кривизна вдоль наклона", "Curvature along tilt"),
+        &res.k_dir,
+        1e6,
+    )?;
+    let p_kmax = write(
+        t(lang, "Главная кривизна max", "Max principal curvature"),
+        &res.k_max,
+        1e6,
+    )?;
+    let p_kmin = write(
+        t(lang, "Главная кривизна min", "Min principal curvature"),
+        &res.k_min,
+        1e6,
+    )?;
+
+    add_raster(host, &p_tilt)?;
+    add_raster(host, &p_az)?;
+    add_raster(host, &p_kdir)?;
+    add_raster(host, &p_kmax)?;
+    add_raster(host, &p_kmin)?;
+
+    let mut lines = Vec::new();
+    lines.push(pyfmt::format(
+        t(
+            lang,
+            "База %.4g м, ячейка %.4g м, qᵢ = %.4f, qₖ = %.4f.",
+            "Base %.4g m, cell %.4g m, q_tilt = %.4f, q_curv = %.4f.",
+        ),
+        &[Arg::from(base), Arg::from(cell), Arg::from(qi), Arg::from(qk)],
+    ));
+    let nd = NODATA as f32;
+    let mut ok: Vec<f32> = to32(&res.tilt).iter().copied().filter(|&v| v != nd).collect();
+    if !ok.is_empty() {
+        let lo = ok.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = ok.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let med = median_f32(&mut ok);
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Наклон: от %.4g до %.4g мм/м, медиана %.4g мм/м.",
+                "Tilt: from %.4g to %.4g mm/m, median %.4g mm/m.",
+            ),
+            &[Arg::from(f64::from(lo)), Arg::from(f64::from(hi)), Arg::from(med)],
+        ));
+    }
+    let okk: Vec<f32> = to32(&res.k_dir).iter().copied().filter(|&v| v != nd).collect();
+    if !okk.is_empty() {
+        let lo = okk.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = okk.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Кривизна вдоль наклона: от %.4g до %.4g 10⁻⁶ 1/м.",
+                "Curvature along tilt: from %.4g to %.4g 10⁻⁶ 1/m.",
+            ),
+            &[Arg::from(f64::from(lo)), Arg::from(f64::from(hi))],
+        ));
+    }
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 9.02 Горизонтальные деформации: команда `subsidence-horizontal`.
+pub fn subsidence_horizontal(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["curv"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбран растр кривизны.",
+                "No curvature raster is chosen.",
+            )
+            .to_string()
+        })?;
+    let formula = param_str(params, "formula");
+    let half_l = param_f64(params, "half_l", 0.0);
+    let depth = param_f64(params, "depth", 300.0).max(1.0);
+    let boundary = param_str(params, "boundary");
+    let l0 = param_f64(params, "l0", 15.0).max(0.1);
+
+    let dir = run_dir("subsidence-horizontal")?;
+    let g = export_raster(host, layer, &dir)?;
+    let _cell = geotiff::square_cell(g.cell, 1e-3).map_err(|(cx, cy)| {
+        pyfmt::format(
+            t(
+                lang,
+                "Ячейка растра не квадратная: %.6g по X и %.6g по Y.",
+                "The raster cell is not square: %.6g in X and %.6g in Y.",
+            ),
+            &[Arg::from(cx), Arg::from(cy)],
+        )
+    })?;
+
+    let length = if formula.starts_with("ε = mₑ·K·l₀") || formula.starts_with("eps = m_e * K * l0") {
+        l0
+    } else if half_l > 0.0 {
+        half_l
+    } else {
+        let delta = if boundary.starts_with("temporary") || boundary.starts_with("временная") {
+            crate::subsidence::ANGLE_TEMPORARY
+        } else {
+            crate::subsidence::ANGLE_PERMANENT
+        };
+        crate::subsidence::half_trough_length(depth, delta, crate::subsidence::ANGLE_PSI)
+    };
+
+    let eps: Vec<f64> = g
+        .z
+        .iter()
+        .map(|&v| {
+            if v.is_finite() && v != NODATA {
+                // вход в 10⁻⁶ 1/м -> в 1/м
+                let curv = v * 1e-6;
+                crate::subsidence::eps_from_curvature(curv, length)
+            } else {
+                f64::NAN
+            }
+        })
+        .collect();
+
+    let out32: Vec<f32> = eps
+        .iter()
+        .map(|&v| {
+            if v.is_finite() {
+                (v * 1000.0) as f32
+            } else {
+                NODATA as f32
+            }
+        })
+        .collect();
+    let out_path = dir.join(format!(
+        "{}.tif",
+        t(
+            lang,
+            "Горизонтальная деформация",
+            "Horizontal deformation"
+        )
+    ));
+    geotiff::write_like(&out_path, &g, &out32, NODATA)?;
+    add_raster(host, &out_path)?;
+
+    let mut lines = Vec::new();
+    lines.push(pyfmt::format(
+        t(
+            lang,
+            "Длина полумульды %.4g м. Деформация ε = mₑ·K·L.",
+            "Half-trough length %.4g m. Deformation ε = mₑ·K·L.",
+        ),
+        &[Arg::from(length)],
+    ));
+    let nd = NODATA as f32;
+    let ok: Vec<f32> = out32.iter().copied().filter(|&v| v != nd).collect();
+    if !ok.is_empty() {
+        let lo = ok.iter().copied().fold(f32::INFINITY, f32::min);
+        let hi = ok.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Деформация: сжатие до %.4g мм/м, растяжение до %.4g мм/м.",
+                "Deformation: compression to %.4g mm/m, extension to %.4g mm/m.",
+            ),
+            &[Arg::from(f64::from(lo)), Arg::from(f64::from(hi))],
+        ));
+    }
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -904,5 +1367,12 @@ mod tests {
     fn median_like_numpy() {
         assert_eq!(median_f32(&mut [3.0, 1.0, 2.0]), 2.0);
         assert_eq!(median_f32(&mut [4.0, 1.0, 2.0, 3.0]), 2.5);
+    }
+
+    #[test]
+    fn normal_cdf_is_symmetric() {
+        assert!((normal_cdf(0.0) - 0.5).abs() < 1e-6);
+        assert!((normal_cdf(1.96) - 0.975).abs() < 1e-3);
+        assert!((normal_cdf(-1.96) - 0.025).abs() < 1e-3);
     }
 }

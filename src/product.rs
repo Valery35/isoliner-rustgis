@@ -129,6 +129,10 @@ pub mod tab {
                     Item::Command("slope-aspect"),
                     Item::Command("kriging-2d"),
                     Item::Command("minimum-curvature"),
+                    Item::Command("probability-threshold"),
+                    Item::Command("flow-gradient"),
+                    Item::Command("subsidence-tilt-curvature"),
+                    Item::Command("subsidence-horizontal"),
                 ],
             },
             Group {
@@ -236,7 +240,29 @@ impl Product for Isoliner {
             "kriging-2d" => match crate::raster_cmd::kriging_2d(host, &req["params"], lang) {
                 Ok(v) => json!({"ok": v}),
                 Err(e) => json!({"error": e}),
-            },
+            }
+            "probability-threshold" => {
+                match crate::raster_cmd::probability_threshold(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "flow-gradient" => match crate::raster_cmd::flow_gradient(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            }
+            "subsidence-tilt-curvature" => {
+                match crate::raster_cmd::subsidence_tilt_curvature(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "subsidence-horizontal" => {
+                match crate::raster_cmd::subsidence_horizontal(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
             "about" => json!({"ok": {
                 "title": "Isoliner",
                 "version": env!("CARGO_PKG_VERSION"),
