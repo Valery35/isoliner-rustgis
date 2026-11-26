@@ -274,8 +274,50 @@ impl Product for Isoliner {
     }
 }
 
+/// Группа инструмента по его коду, как в дереве инструментов QGIS.
+fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
+    let mut parts = code.split('.');
+    let major = parts.next()?.parse::<u32>().ok()?;
+    let minor = parts.next().unwrap_or("0").parse::<u32>().unwrap_or(0);
+    Some(match (major, minor) {
+        (1, _) => ("1. Grid and isolines", "1. Грид и изолинии"),
+        (2, n) if n <= 10 => ("2. Topography", "2. Топография"),
+        (2, _) => ("3. Topography: diagnostics and cleanup", "3. Топография: диагностика и правка"),
+        (3, _) => ("4. Additional analysis tools", "4. Дополнительные инструменты анализа"),
+        (4, _) => ("5. Section", "5. Разрез"),
+        (5, _) => ("6. Geological model", "6. Геологическая модель"),
+        (6, _) => ("7. River hydrology", "7. Гидрология рек"),
+        (7, _) => ("8. Fractal analysis", "8. Фрактальный анализ"),
+        (8, _) => ("9. Data exchange", "9. Обмен данными"),
+        (9, _) => ("10. Subsidence", "10. Сдвигения"),
+        _ => return None,
+    })
+}
+
 /// `plugin.json` с разделом `tools` и переводами его строк.
 pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
-    let (tools, ru) = rustgis_kit::manifest::tools_section(catalog, &OPTIONS);
+    let (mut tools, mut ru) = rustgis_kit::manifest::tools_section(catalog, &OPTIONS);
+    // Коды инструментов из tools.json нужны для группировки в панели Инструментов.
+    let tools_json: J = serde_json::from_str(TOOLS_JSON).map_err(|e| e.to_string())?;
+    let mut code_by_id = std::collections::HashMap::new();
+    if let Some(arr) = tools_json["tools"].as_array() {
+        for t in arr {
+            if let (Some(name), Some(code)) = (t["name"].as_str(), t["code"].as_str()) {
+                // Имя в tools.json с подчёркиваниями, в plugin.json id заменяется на дефисы.
+                code_by_id.insert(name.replace('_', "-"), code);
+                code_by_id.insert(name.to_string(), code);
+            }
+        }
+    }
+    for tool in &mut tools {
+        if let Some(id) = tool.get("id").and_then(|v| v.as_str()) {
+            if let Some(&code) = code_by_id.get(id) {
+                if let Some((en, rus)) = qgis_group(code) {
+                    tool["toolbox"] = J::String(en.to_string());
+                    ru.insert(en.to_string(), J::String(rus.to_string()));
+                }
+            }
+        }
+    }
     rustgis_kit::manifest::splice(base, &tools, &ru)
 }
