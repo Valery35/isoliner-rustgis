@@ -67,6 +67,17 @@ impl Call for Fake {
                             "properties": {}
                         }]
                     })),
+                    "ditches" => Ok(json!({
+                        "type": "FeatureCollection",
+                        "features": [{
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": [[0.5, 0.5], [5.5, 0.5]]
+                            },
+                            "properties": {}
+                        }]
+                    })),
                     _ => Err(format!("unexpected layer {layer}")),
                 }
             }
@@ -558,6 +569,33 @@ fn gauge_report_adds_a_point() {
     assert_eq!(fc["features"].as_array().unwrap().len(), 1);
     let report = out["report"].as_str().unwrap();
     assert!(report.contains("Gauge 1:"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn ditch_catchment_adds_a_point() {
+    let dir = std::env::temp_dir().join(format!("isoliner-dc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dem.tif");
+    let mut z = vec![0.0f32; 36];
+    for r in 0..6 {
+        for c in 0..6 {
+            z[r * 6 + c] = 10.0 - (r + c) as f32;
+        }
+    }
+    write_grid(&src, &z, 6, 6, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::ditch_catchment(
+        &mut host,
+        &json!({"input": "dem", "lines": "ditches", "fill": true}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    assert_eq!(host.layers[0].0, "Line catchments");
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Line 1:"), "{report}");
     std::fs::remove_dir_all(&dir).ok();
 }
 

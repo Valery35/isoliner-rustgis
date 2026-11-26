@@ -2237,6 +2237,109 @@ pub fn gauge_report(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, St
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.16 Водосбор линии: команда `ditch-catchment`.
+pub fn ditch_catchment(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string()
+        })?;
+    let lines_layer = params["lines"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(lang, "Не выбран слой линий.", "No line layer is chosen.").to_string()
+        })?;
+    let fill = params["fill"].as_bool().unwrap_or(true);
+    let dir = run_dir("ditch-catchment")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    if fill {
+        crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    }
+    let d = crate::topo_flow::d8_flow(&z, g.height, g.width, nodata);
+    let fc = host.call("host.features", json!({"layer": lines_layer, "crs": "layer"}))?;
+    let (x0, y0) = g.origin();
+    let gt = [x0, g.cell.0, 0.0, y0, 0.0, -g.cell.1];
+    let (cx, cy) = g.cell;
+    let mut features = Vec::new();
+    let mut lines = Vec::new();
+    for (i, f) in fc["features"].as_array().into_iter().flatten().enumerate() {
+        let parts = line_parts(&f["geometry"]);
+        if parts.is_empty() {
+            continue;
+        }
+        let mut basin = vec![false; g.width * g.height];
+        let mut first = (0.0f64, 0.0f64);
+        for (pi, part) in parts.iter().enumerate() {
+            if pi == 0 && !part.is_empty() {
+                first = part[0];
+            }
+            let ws = crate::topo_gauge::line_catchment(
+                &d, g.height, g.width, part, &gt,
+            );
+            for k in 0..basin.len() {
+                basin[k] |= ws[k];
+            }
+        }
+        let cells = basin.iter().filter(|&&b| b).count();
+        let area = cells as f64 * cx * cy;
+        let mut zsum = 0.0;
+        let mut zmin = f64::INFINITY;
+        let mut zmax = f64::NEG_INFINITY;
+        for k in 0..basin.len() {
+            if basin[k] && z[k].is_finite() && z[k] != nodata {
+                zsum += z[k];
+                zmin = zmin.min(z[k]);
+                zmax = zmax.max(z[k]);
+            }
+        }
+        let zmean = if cells > 0 { zsum / cells as f64 } else { f64::NAN };
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [first.0, first.1]},
+            "properties": {
+                "ditch": i as i64,
+                "area_km2": area / 1e6,
+                "cells": cells as i64,
+                "z_mean": zmean,
+                "z_min": if zmin.is_finite() { zmin } else { f64::NAN },
+                "z_max": if zmax.is_finite() { zmax } else { f64::NAN }
+            }
+        }));
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Линия %d: водосбор %.4g км², ячеек %d, высоты %.4g–%.4g.",
+                "Line %d: catchment %.4g km², %d cells, elevations %.4g–%.4g.",
+            ),
+            &[
+                Arg::from(i as f64 + 1.0),
+                Arg::from(area / 1e6),
+                Arg::from(cells as f64),
+                Arg::from(if zmin.is_finite() { zmin } else { f64::NAN }),
+                Arg::from(if zmax.is_finite() { zmax } else { f64::NAN }),
+            ],
+        ));
+    }
+    if features.is_empty() {
+        return Err(t(
+            lang,
+            "В слое линий нет подходящих объектов.",
+            "The line layer holds no suitable features.",
+        )
+        .to_string());
+    }
+    let name = t(lang, "Водосборы линий", "Line catchments");
+    host.call(
+        "host.addLayer",
+        json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}),
+    )?;
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

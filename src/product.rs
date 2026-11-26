@@ -55,6 +55,7 @@ pub mod tab {
                     Item::Command("basins"),
                     Item::Command("peaks-pits"),
                     Item::Command("gauge-report"),
+                    Item::Command("ditch-catchment"),
                 ],
             },
             Group {
@@ -224,6 +225,12 @@ impl Product for Isoliner {
             }
             "gauge-report" => {
                 match crate::raster_cmd::gauge_report(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "ditch-catchment" => {
+                match crate::raster_cmd::ditch_catchment(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
                     Err(e) => json!({"error": e}),
                 }
