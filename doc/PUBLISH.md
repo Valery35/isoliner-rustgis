@@ -4,6 +4,27 @@
 Тексты выпуска лежат в `site/release_rustgis_<номер>.md` (описание на
 GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 
+### Isoliner для RustGIS 0.1.21 - 26 ноября 2026 года
+
+Выпуск закрывает работу 0.1.7-0.1.21, сделанную с другой машины: 22 новые
+команды, группировка по разделам QGIS, пакет требует RustGIS 0.8.0. Тесты:
+139 зелёных (`cargo test --release`). Пакет `isoliner-0.1.21.rgplugin`,
+SHA-256 `673bfbc11c1649fb1332935a8ee2983f0f6500c87d1797295cf610bc1b37ef12`.
+
+| Площадка | Значение |
+|---|---|
+| GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.21 - пакет `isoliner-0.1.21.rgplugin`, SHA-256 совпадает с Dropbox |
+| Dropbox | `ИИ\Isoliner\isoliner-0.1.21.rgplugin` |
+| Telegram |  |
+| Mastodon |  |
+| X |  |
+| LinkedIn |  |
+| Facebook |  |
+| ВК |  |
+| Каталог RustGIS | не отправлен; в каталоге 0.1.6 (PR #84) |
+| Сайт informpp.ru | не обновлялся |
+| RustGIS автора | 0.1.21 установлен, вкладка Isoliner проверена |
+
 ### Isoliner для RustGIS 0.1.6 - 26 ноября 2026 года
 
 Выпуск по слову автора «двигай по плану». Пять растровых команд:
