@@ -132,6 +132,82 @@ pub fn smooth_clamped(
     out
 }
 
+/// Снятие ступеней с ограничением, порт `topo_smooth.smooth_clamped`:
+/// 4-соседнее сглаживание, каждая ячейка не уходит от исходной дальше
+/// `band` долей сечения. Ограничение держится по исходной поверхности на
+/// всех итерациях, поэтому горизонтали не сдвигаются.
+pub fn smooth_clamped_terrace(
+    z: &[f64],
+    rows: usize,
+    cols: usize,
+    nodata: f64,
+    interval: f64,
+    iters: usize,
+    band: f64,
+) -> Vec<f64> {
+    let n = rows * cols;
+    if n == 0 || iters == 0 || interval <= 0.0 {
+        return z.to_vec();
+    }
+    let valid: Vec<bool> = z
+        .iter()
+        .map(|&v| v.is_finite() && v != nodata)
+        .collect();
+    if !valid.iter().any(|&b| b) {
+        return z.to_vec();
+    }
+    // Центрирование: отметки вокруг среднего, чтобы float32 не терял точность.
+    let (sum, cnt) = z
+        .iter()
+        .zip(&valid)
+        .filter(|&(_, &b)| b)
+        .fold((0.0f64, 0usize), |(s, c), (&v, _)| (s + v, c + 1));
+    let off = sum / cnt as f64;
+    let z0: Vec<f64> = z
+        .iter()
+        .zip(&valid)
+        .map(|(&v, &b)| if b { v - off } else { 0.0 })
+        .collect();
+    let delta = band * interval;
+    let lo: Vec<f64> = z0.iter().map(|&v| v - delta).collect();
+    let hi: Vec<f64> = z0.iter().map(|&v| v + delta).collect();
+    let mut cur = z0.clone();
+    let mut next = cur.clone();
+    const OFF: [(isize, isize); 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
+    for _ in 0..iters {
+        for r in 0..rows {
+            for c in 0..cols {
+                let k = r * cols + c;
+                if !valid[k] {
+                    next[k] = 0.0;
+                    continue;
+                }
+                let mut acc = 4.0 * cur[k];
+                let mut w = 4.0;
+                for &(dr, dc) in &OFF {
+                    let nr = r as isize + dr;
+                    let nc = c as isize + dc;
+                    if nr < 0 || nr >= rows as isize || nc < 0 || nc >= cols as isize {
+                        continue;
+                    }
+                    let nk = nr as usize * cols + nc as usize;
+                    if valid[nk] {
+                        acc += cur[nk];
+                        w += 1.0;
+                    }
+                }
+                next[k] = (acc / w).clamp(lo[k], hi[k]);
+            }
+        }
+        std::mem::swap(&mut cur, &mut next);
+    }
+    z.iter()
+        .zip(&valid)
+        .zip(&cur)
+        .map(|((&orig, &b), &v)| if b { v + off } else { orig })
+        .collect()
+}
+
 /// Извлечение минимального элемента из кучи.
 fn heap_pop(heap: &mut Vec<(f64, usize)>) -> Option<(f64, usize)> {
     if heap.is_empty() {
@@ -202,6 +278,27 @@ mod tests {
             "pit filled to {}",
             z[3 * cols + 3]
         );
+    }
+
+    /// Снятие ступеней: выброс уменьшается, но не выходит за половину сечения.
+    #[test]
+    fn terrace_smooth_stays_within_band() {
+        let rows = 5;
+        let cols = 5;
+        let mut z = vec![10.0f64; rows * cols];
+        z[12] = 20.0;
+        let out = smooth_clamped_terrace(&z, rows, cols, -9999.0, 4.0, 10, 0.5);
+        assert!(out[12] < 20.0, "spike stayed {}", out[12]);
+        assert!(out[12] >= 18.0 - 1e-9, "spike dropped to {}", out[12]);
+        // Ограничение держится для всех ячеек: не дальше половины сечения
+        // от собственного исходного значения.
+        for (i, &v) in out.iter().enumerate() {
+            assert!(
+                (v - z[i]).abs() <= 2.0 + 1e-9,
+                "cell {i} left the band: {v} vs {}",
+                z[i]
+            );
+        }
     }
 
     /// Сглаживание: выброс уменьшается.

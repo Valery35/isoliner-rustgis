@@ -1719,6 +1719,76 @@ pub fn basins(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> 
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.14 Снятие ступеней: команда `terrace-smooth`.
+pub fn terrace_smooth(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбрана входная ЦМР.",
+                "No input DEM is chosen.",
+            )
+            .to_string()
+        })?;
+    let interval = params["interval"].as_f64().unwrap_or(0.0);
+    if interval <= 0.0 {
+        return Err(t(
+            lang,
+            "Задайте сечение рельефа больше нуля.",
+            "Set a contour interval greater than zero.",
+        )
+        .to_string());
+    }
+    let iters = params["iters"].as_u64().unwrap_or(50).min(500) as usize;
+    let limit = params["limit"].as_f64().unwrap_or(0.5).clamp(0.0, 1.0);
+    let dir = run_dir("terrace-smooth")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let out = crate::topo_prep::smooth_clamped_terrace(
+        &g.z,
+        g.height,
+        g.width,
+        nodata,
+        interval,
+        iters,
+        limit,
+    );
+    let out32: Vec<f32> = out
+        .iter()
+        .zip(&g.z)
+        .map(|(&v, &orig)| {
+            if orig.is_finite() && orig != nodata {
+                v as f32
+            } else {
+                NODATA as f32
+            }
+        })
+        .collect();
+    let path = dir.join(format!(
+        "{}.tif",
+        t(lang, "Рельеф без ступеней", "Terrain without steps")
+    ));
+    geotiff::write_like(&path, &g, &out32, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![
+        pyfmt::format(
+            t(
+                lang,
+                "Сечение %.4g, допустимый сдвиг %.4g, итераций %d.",
+                "Interval %.4g, allowed shift %.4g, iterations %d.",
+            ),
+            &[
+                Arg::from(interval),
+                Arg::from(limit * interval),
+                Arg::from(iters as f64),
+            ],
+        ),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

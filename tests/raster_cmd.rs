@@ -418,6 +418,31 @@ fn basins_labels_the_plane() {
 }
 
 #[test]
+fn terrace_smooth_reduces_the_step() {
+    let dir = std::env::temp_dir().join(format!("isoliner-ts-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("steps.tif");
+    let mut z = vec![10.0f32; 25];
+    z[12] = 20.0;
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::terrace_smooth(
+        &mut host,
+        &json!({"input": "dem", "interval": 4.0, "iters": 10, "limit": 0.5}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert!(g.z[12] < 20.0, "step stayed {}", g.z[12]);
+    assert!(g.z[12] >= 18.0 - 1e-6, "step dropped to {}", g.z[12]);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Interval"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(

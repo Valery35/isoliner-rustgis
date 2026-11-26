@@ -57,6 +57,11 @@ pub mod tab {
                 ],
             },
             Group {
+                label: l("3. Topography diagnostics", "3. Топография: диагностика"),
+                layout: Layout::Large,
+                items: &[Item::Command("terrace-smooth")],
+            },
+            Group {
                 label: l("4. Additional analysis", "4. Анализ"),
                 layout: Layout::Large,
                 items: &[Item::Command("probability-threshold"), Item::Command("flow-gradient")],
@@ -194,6 +199,12 @@ impl Product for Isoliner {
                 Ok(v) => json!({"ok": v}),
                 Err(e) => json!({"error": e}),
             },
+            "terrace-smooth" => {
+                match crate::raster_cmd::terrace_smooth(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
             "subsidence-tilt-curvature" => {
                 match crate::raster_cmd::subsidence_tilt_curvature(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
