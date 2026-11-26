@@ -32,16 +32,23 @@ pub fn sample_grid_points(
                 out[k] = arr[iy as usize * cols + ix as usize];
             }
         } else {
+            // Точка вне растра - NaN. На самой рамке индексы соседей
+            // прижимаются к краю, иначе нулевой вес умножался бы на NaN.
+            if fx < -0.5
+                || fx > cols as f64 - 0.5
+                || fy < -0.5
+                || fy > rows as f64 - 0.5
+            {
+                continue;
+            }
             let x0 = fx.floor() as i64;
             let y0 = fy.floor() as i64;
             let tx = fx - x0 as f64;
             let ty = fy - y0 as f64;
             let get = |ix: i64, iy: i64| -> f64 {
-                if ix >= 0 && (ix as usize) < cols && iy >= 0 && (iy as usize) < rows {
-                    arr[iy as usize * cols + ix as usize]
-                } else {
-                    f64::NAN
-                }
+                let ix = ix.clamp(0, cols as i64 - 1);
+                let iy = iy.clamp(0, rows as i64 - 1);
+                arr[iy as usize * cols + ix as usize]
             };
             let v00 = get(x0, y0);
             let v10 = get(x0 + 1, y0);

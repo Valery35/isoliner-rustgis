@@ -48,6 +48,17 @@ impl Call for Fake {
                 match layer {
                     "wells" => Ok(plane_points_geojson()),
                     "bounds" => Ok(bounds_geojson()),
+                    "contours" => Ok(json!({
+                        "type": "FeatureCollection",
+                        "features": [{
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": [[0.5, 1.5], [4.5, 1.5]]
+                            },
+                            "properties": {"elev": 7.0, "hold": 0}
+                        }]
+                    })),
                     _ => Err(format!("unexpected layer {layer}")),
                 }
             }
@@ -439,6 +450,42 @@ fn terrace_smooth_reduces_the_step() {
     assert!(g.z[12] >= 18.0 - 1e-6, "step dropped to {}", g.z[12]);
     let report = out["report"].as_str().unwrap();
     assert!(report.contains("Interval"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn contour_residual_reads_the_dem() {
+    let dir = std::env::temp_dir().join(format!("isoliner-cr-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dem.tif");
+    let mut z = vec![0.0f32; 25];
+    for r in 0..5 {
+        for c in 0..5 {
+            z[r * 5 + c] = 10.0 - r as f32;
+        }
+    }
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::contour_residual(
+        &mut host,
+        &json!({
+            "contours": "contours",
+            "field": "elev",
+            "dem": "dem",
+            "step": 0.0,
+            "sampling": "Bilinear",
+            "interval": 2.0
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Residuals:"), "{report}");
+    assert!(report.contains("mean 0,"), "{report}");
+    // The hold field splits the report into building and validation.
+    assert!(report.contains("building:"), "{report}");
     std::fs::remove_dir_all(&dir).ok();
 }
 

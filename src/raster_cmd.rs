@@ -1789,6 +1789,246 @@ pub fn terrace_smooth(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, 
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// Части линии из геометрии GeoJSON: LineString или MultiLineString.
+fn line_parts(geometry: &J) -> Vec<Vec<(f64, f64)>> {
+    let one = |coords: &J| -> Vec<(f64, f64)> {
+        coords
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| {
+                let a = p.as_array()?;
+                Some((a.first()?.as_f64()?, a.get(1)?.as_f64()?))
+            })
+            .collect()
+    };
+    match geometry["type"].as_str().unwrap_or("") {
+        "LineString" => vec![one(&geometry["coordinates"])],
+        "MultiLineString" => geometry["coordinates"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(one)
+            .filter(|p| p.len() >= 2)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Медиана ряда, как `np.median`.
+fn median(v: &mut [f64]) -> f64 {
+    if v.is_empty() {
+        return f64::NAN;
+    }
+    v.sort_by(f64::total_cmp);
+    let n = v.len();
+    if n % 2 == 1 {
+        v[n / 2]
+    } else {
+        (v[n / 2 - 1] + v[n / 2]) / 2.0
+    }
+}
+
+/// 2.12 Невязка горизонталей против ЦМР: команда `contour-residual`.
+pub fn contour_residual(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let contours = params["contours"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбран слой горизонталей.",
+                "No contour layer is chosen.",
+            )
+            .to_string()
+        })?;
+    let dem = params["dem"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string()
+        })?;
+    let field = params["field"].as_str().unwrap_or("");
+    if field.is_empty() {
+        return Err(t(
+            lang,
+            "Не выбрано поле отметки горизонталей.",
+            "No contour elevation field is chosen.",
+        )
+        .to_string());
+    }
+    let step = params["step"].as_f64().unwrap_or(0.0).max(0.0);
+    let bilinear = params["sampling"].as_str() != Some("nearest");
+    let interval = params["interval"].as_f64().unwrap_or(0.0).max(0.0);
+
+    let dir = run_dir("contour-residual")?;
+    let g = export_raster(host, dem, &dir)?;
+    let fc = host.call(
+        "host.features",
+        json!({"layer": contours, "crs": "layer"}),
+    )?;
+    let (x0, y0) = g.origin();
+    let gt = [x0, g.cell.0, 0.0, y0, 0.0, -g.cell.1];
+
+    let mut xs = Vec::new();
+    let mut ys = Vec::new();
+    let mut elevs = Vec::new();
+    let mut holds = Vec::new();
+    let mut has_hold = false;
+    for (idx, f) in fc["features"].as_array().into_iter().flatten().enumerate() {
+        let elev = f["properties"][field]
+            .as_f64()
+            .or_else(|| f["properties"][field].as_str().and_then(|s| s.parse().ok()));
+        let Some(elev) = elev else { continue };
+        let hold = f["properties"]["hold"].as_i64();
+        if hold.is_some() {
+            has_hold = true;
+        }
+        for part in line_parts(&f["geometry"]) {
+            let pts: Vec<(f64, f64)> = if step > 0.0 {
+                crate::section::stations(&part, step)
+                    .into_iter()
+                    .map(|(x, y, _)| (x, y))
+                    .collect()
+            } else {
+                part
+            };
+            for (x, y) in pts {
+                xs.push(x);
+                ys.push(y);
+                elevs.push(elev);
+                holds.push(hold.unwrap_or(-1));
+            }
+        }
+    }
+    if xs.is_empty() {
+        return Err(t(
+            lang,
+            "В слое горизонталей нет линий с числовой отметкой.",
+            "The contour layer holds no lines with a numeric elevation.",
+        )
+        .to_string());
+    }
+    let zs = crate::section::sample_grid_points(
+        &g.z, g.height, g.width, &gt, &xs, &ys, bilinear,
+    );
+    let mut features = Vec::new();
+    let mut resid = Vec::new();
+    let mut resid_hold = Vec::new();
+    for i in 0..xs.len() {
+        if !zs[i].is_finite() {
+            continue;
+        }
+        let r = elevs[i] - zs[i];
+        resid.push(r);
+        if holds[i] >= 0 {
+            resid_hold.push((holds[i], r));
+        }
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [xs[i], ys[i]]},
+            "properties": {
+                "fid_src": i as i64,
+                "elev": elevs[i],
+                "z_dem": zs[i],
+                "resid": r,
+                "abs_resid": r.abs(),
+                "hold": holds[i]
+            }
+        }));
+    }
+    if resid.is_empty() {
+        return Err(t(
+            lang,
+            "Ни одна точка горизонталей не попала на растр.",
+            "No contour point fell on the raster.",
+        )
+        .to_string());
+    }
+    let stats = |r: &[f64]| -> (f64, f64, f64, f64, f64) {
+        let n = r.len() as f64;
+        let mean = r.iter().sum::<f64>() / n;
+        let std = (r.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n).sqrt();
+        let rmse = (r.iter().map(|v| v * v).sum::<f64>() / n).sqrt();
+        let mut abs: Vec<f64> = r.iter().map(|v| v.abs()).collect();
+        let med = median(&mut abs);
+        let max = abs.iter().cloned().fold(0.0f64, f64::max);
+        (mean, std, rmse, med, max)
+    };
+    let (mean, std, rmse, med, max) = stats(&resid);
+    let mut lines = vec![pyfmt::format(
+        t(
+            lang,
+            "Невязки: %d точек, смещение %.4g, СКО %.4g, RMSE %.4g, медиана |r| %.4g, максимум %.4g.",
+            "Residuals: %d points, mean %.4g, std %.4g, RMSE %.4g, median |r| %.4g, max %.4g.",
+        ),
+        &[
+            Arg::from(resid.len() as f64),
+            Arg::from(mean),
+            Arg::from(std),
+            Arg::from(rmse),
+            Arg::from(med),
+            Arg::from(max),
+        ],
+    )];
+    if interval > 0.0 {
+        let beyond = resid.iter().filter(|r| r.abs() > interval / 2.0).count();
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Промах больше половины сечения: %d из %d (%.1f%%).",
+                "Beyond half the interval: %d of %d (%.1f%%).",
+            ),
+            &[
+                Arg::from(beyond as f64),
+                Arg::from(resid.len() as f64),
+                Arg::from(100.0 * beyond as f64 / resid.len() as f64),
+            ],
+        ));
+    }
+    if has_hold {
+        for (label_ru, label_en, want) in [
+            ("построение", "building", 0i64),
+            ("проверка", "validation", 1i64),
+        ] {
+            let sub: Vec<f64> = resid_hold
+                .iter()
+                .filter(|(h, _)| *h == want)
+                .map(|(_, r)| *r)
+                .collect();
+            if sub.is_empty() {
+                continue;
+            }
+            let (m, s, rm, md, mx) = stats(&sub);
+            lines.push(pyfmt::format(
+                t(
+                    lang,
+                    "%s: %d точек, смещение %.4g, СКО %.4g, RMSE %.4g, медиана |r| %.4g, максимум %.4g.",
+                    "%s: %d points, mean %.4g, std %.4g, RMSE %.4g, median |r| %.4g, max %.4g.",
+                ),
+                &[
+                    Arg::from(match lang {
+                        Lang::Ru => label_ru,
+                        Lang::En => label_en,
+                    }),
+                    Arg::from(sub.len() as f64),
+                    Arg::from(m),
+                    Arg::from(s),
+                    Arg::from(rm),
+                    Arg::from(md),
+                    Arg::from(mx),
+                ],
+            ));
+        }
+    }
+    let name = t(lang, "Невязки горизонталей", "Contour residuals");
+    host.call(
+        "host.addLayer",
+        json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}),
+    )?;
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
