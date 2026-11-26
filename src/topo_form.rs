@@ -8,7 +8,6 @@
 //! Бровка — линия перегиба вверху откоса, подошва — внизу.
 //! Находятся по нормали к градиенту: где уклон резко меняется.
 
-
 /// Кандидат бровки или подошвы.
 #[derive(Debug, Clone)]
 pub struct BrowSole {
@@ -207,7 +206,7 @@ mod tests {
         let rows = 50;
         let cols = 50;
         let z: Vec<f64> = (0..rows)
-            .flat_map(|r| (0..cols).map(move |_c| 100.0 - r as f64))
+            .flat_map(|r| (0..cols).map(move |c| 100.0 - r as f64))
             .collect();
         let gt = [0.0, 1.0, 0.0, 50.0, 0.0, -1.0];
         let line = [(5.0, 45.0), (5.0, 5.0)]; // вниз по склону

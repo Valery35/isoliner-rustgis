@@ -10,6 +10,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod declus;
+pub mod dem_fetch;
 pub mod dem_merge;
 pub mod demo_section;
 pub mod isolines;
@@ -23,6 +24,7 @@ pub mod topo_form;
 pub mod topo_break;
 pub mod topo_gauge;
 pub mod topo_prep;
+pub mod topo_t2r;
 pub mod variogram_map;
 pub mod volumes;
 pub mod density;
