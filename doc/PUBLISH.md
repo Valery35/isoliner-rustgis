@@ -4,6 +4,27 @@
 Тексты выпуска лежат в `site/release_rustgis_<номер>.md` (описание на
 GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 
+### Isoliner для RustGIS 0.1.22 - 27 ноября 2026 года
+
+Лента Isoliner разложена на семь групп-меню, команды убраны из ленты
+в выпадающие списки; состав команд и инструментов прежний. Тесты: 139
+зелёных. Пакет `isoliner-0.1.22.rgplugin`, SHA-256
+`a1da6f7d51e2fc1e1a1983298f2705f442833489bcd351aa745d6b7763e89070`.
+
+| Площадка | Значение |
+|---|---|
+| GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.22 |
+| Dropbox | `ИИ\Isoliner\isoliner-0.1.22.rgplugin`, SHA-256 совпадает с GitHub |
+| Telegram | ждёт автоматический пост бота по выпуску GitHub |
+| ВК | https://vk.ru/im/channels/-241323398, запись 01:30 |
+| Mastodon | https://en.osm.town/@Vaery35/117684673701385092 |
+| X | https://x.com/Valery35/status/2126055409563652120 |
+| LinkedIn | https://www.linkedin.com/feed/update/urn:li:share:7531822986971172864/ |
+| Facebook | https://www.facebook.com/valery35/posts/pfbid02odUwPKMM4Q3pV2hVLUDQbYp7naCGSkfYQekk9h5c2WLy9bwb4JUfXcm97AuVA3krl |
+| Каталог RustGIS | PR #84 обновлён до 0.1.22, открыт |
+| Сайт informpp.ru | страница RustGIS Isoliner показывает выпуск 0.1.3; правка требует входа автора в Сайты Google |
+| RustGIS автора | 0.1.22 установлен, вкладка проверена |
+
 ### Isoliner для RustGIS 0.1.21 - 26 ноября 2026 года
 
 Выпуск закрывает работу 0.1.7-0.1.21, сделанную с другой машины: 22 новые
