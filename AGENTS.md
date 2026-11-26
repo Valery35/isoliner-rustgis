@@ -25,4 +25,5 @@ C:\Users\Val\Dropbox\ИИ\Isoliner\
 После сборки проверять:
 - файл лежит в `C:\Users\Val\Dropbox\ИИ\Isoliner\`;
 - размер соответствует свежей сборке (~1.7 МиБ для v0.1.6);
+- `plugin.json` внутри `.rgplugin` — **UTF-8** (не UTF-16 LE), с корректной кириллицей в `i18n.ru`;
 - `plugin.json` внутри `.rgplugin` содержит актуальный раздел `tab` и группы `tools`.
