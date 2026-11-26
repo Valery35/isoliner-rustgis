@@ -2107,6 +2107,136 @@ pub fn terracing_check(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.15 Отчёт по створу: команда `gauge-report`.
+/// Точки створов притягиваются к ячейке с наибольшей аккумуляцией в
+/// радиусе, от неё строится водосбор и считается морфометрия.
+pub fn gauge_report(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string()
+        })?;
+    let gauges = params["gauges"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбран слой створов.",
+                "No gauge layer is chosen.",
+            )
+            .to_string()
+        })?;
+    let snap = params["snap"].as_f64().unwrap_or(100.0).max(0.0);
+    let fill = params["fill"].as_bool().unwrap_or(true);
+    let dir = run_dir("gauge-report")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    if fill {
+        crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    }
+    let d = crate::topo_flow::d8_flow(&z, g.height, g.width, nodata);
+    let acc = crate::topo_flow::flow_accumulation(&d, None, g.height, g.width, nodata);
+    let fc = host.call("host.features", json!({"layer": gauges, "crs": "layer"}))?;
+    let (x0, y0) = g.origin();
+    let (cx, cy) = g.cell;
+    let sr = if snap > 0.0 {
+        (snap / cx.max(cy)).ceil() as isize
+    } else {
+        0
+    };
+    let mut features = Vec::new();
+    let mut lines = Vec::new();
+    for (i, f) in fc["features"].as_array().into_iter().flatten().enumerate() {
+        let Some(p) = f["geometry"]["coordinates"].as_array() else {
+            continue;
+        };
+        let (Some(x), Some(y)) = (p.first().and_then(J::as_f64), p.get(1).and_then(J::as_f64))
+        else {
+            continue;
+        };
+        let col = ((x - x0) / cx).floor() as isize;
+        let row = ((y0 - y) / cy).floor() as isize;
+        if row < 0 || row >= g.height as isize || col < 0 || col >= g.width as isize {
+            continue;
+        }
+        // Притяжка к ячейке с наибольшей аккумуляцией в радиусе.
+        let mut best = (row as usize, col as usize);
+        let mut best_acc = f64::NEG_INFINITY;
+        for dr in -sr..=sr {
+            for dc in -sr..=sr {
+                let r = row + dr;
+                let c = col + dc;
+                if r < 0 || r >= g.height as isize || c < 0 || c >= g.width as isize {
+                    continue;
+                }
+                let a = acc[r as usize * g.width + c as usize];
+                if a.is_finite() && a > best_acc {
+                    best_acc = a;
+                    best = (r as usize, c as usize);
+                }
+            }
+        }
+        let (orow, ocol) = best;
+        let basin = crate::topo_flow::watershed(&d, g.height, g.width, orow, ocol);
+        let rep = crate::topo_gauge::gauge_report(
+            &z, &d, &basin, g.height, g.width, orow, ocol, cx, nodata,
+        );
+        let ox = x0 + (ocol as f64 + 0.5) * cx;
+        let oy = y0 - (orow as f64 + 0.5) * cy;
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [ox, oy]},
+            "properties": {
+                "gauge": i as i64,
+                "area_m2": rep.area,
+                "flow_len_m": rep.flow_length,
+                "slope_mean": rep.slope_mean,
+                "slope_1085": rep.slope_1085,
+                "zmax": rep.zmax,
+                "zmin": rep.zmin,
+                "zoutlet": rep.zoutlet,
+                "cells": rep.cells as i64,
+                "perimeter_m": rep.perimeter,
+                "relief_ratio": rep.relief_ratio,
+                "tc_kirpich_s": rep.tc_kirpich,
+                "elongation": rep.elongation
+            }
+        }));
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Створ %d: площадь %.4g км², водоток %.4g км, уклон %.4g, высоты %.4g–%.4g.",
+                "Gauge %d: area %.4g km², stream %.4g km, slope %.4g, elevations %.4g–%.4g.",
+            ),
+            &[
+                Arg::from(i as f64 + 1.0),
+                Arg::from(rep.area / 1e6),
+                Arg::from(rep.flow_length / 1e3),
+                Arg::from(rep.slope_mean),
+                Arg::from(rep.zmin),
+                Arg::from(rep.zmax),
+            ],
+        ));
+    }
+    if features.is_empty() {
+        return Err(t(
+            lang,
+            "Ни один створ не попал на растр.",
+            "No gauge fell on the raster.",
+        )
+        .to_string());
+    }
+    let name = t(lang, "Створы", "Gauges");
+    host.call(
+        "host.addLayer",
+        json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}),
+    )?;
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

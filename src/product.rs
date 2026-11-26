@@ -54,6 +54,7 @@ pub mod tab {
                     Item::Command("river-network"),
                     Item::Command("basins"),
                     Item::Command("peaks-pits"),
+                    Item::Command("gauge-report"),
                 ],
             },
             Group {
@@ -221,6 +222,12 @@ impl Product for Isoliner {
                     Err(e) => json!({"error": e}),
                 }
             }
+            "gauge-report" => {
+                match crate::raster_cmd::gauge_report(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
             "subsidence-tilt-curvature" => {
                 match crate::raster_cmd::subsidence_tilt_curvature(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
@@ -251,8 +258,11 @@ fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
     let minor = parts.next().unwrap_or("0").parse::<u32>().unwrap_or(0);
     Some(match (major, minor) {
         (1, _) => ("1. Grid and isolines", "1. Грид и изолинии"),
-        (2, n) if n <= 10 => ("2. Topography", "2. Топография"),
-        (2, _) => ("3. Topography: diagnostics and cleanup", "3. Топография: диагностика и правка"),
+        (2, n) if (11..=14).contains(&n) => (
+            "3. Topography: diagnostics and cleanup",
+            "3. Топография: диагностика и правка",
+        ),
+        (2, _) => ("2. Topography", "2. Топография"),
         (3, _) => ("4. Additional analysis tools", "4. Дополнительные инструменты анализа"),
         (4, _) => ("5. Section", "5. Разрез"),
         (5, _) => ("6. Geological model", "6. Геологическая модель"),
