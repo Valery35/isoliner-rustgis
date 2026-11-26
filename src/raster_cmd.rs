@@ -2340,6 +2340,306 @@ pub fn ditch_catchment(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.18 Насыпи и выемки: команда `cut-fill`.
+pub fn cut_fill_cmd(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let ground = params["ground"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбрана поверхность «было».", "No ground surface is chosen.").to_string())?;
+    let plan = params["plan"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбрана поверхность «стало».", "No design surface is chosen.").to_string())?;
+    let dir = run_dir("cut-fill")?;
+    let g = export_raster(host, ground, &dir)?;
+    let p = export_raster(host, plan, &dir)?;
+    if g.width != p.width || g.height != p.height {
+        return Err(t(lang, "Поверхности разного размера.", "The surfaces have different sizes.").to_string());
+    }
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let rep = crate::volumes::cut_fill(&g.z, &p.z, g.cell.0 * g.cell.1, nodata);
+    let diff: Vec<f32> = g
+        .z
+        .iter()
+        .zip(&p.z)
+        .map(|(&gv, &pv)| {
+            if gv.is_finite() && pv.is_finite() && gv != nodata && pv != nodata {
+                (gv - pv) as f32
+            } else {
+                NODATA as f32
+            }
+        })
+        .collect();
+    let path = dir.join(format!("{}.tif", t(lang, "Разница поверхностей", "Surface difference")));
+    geotiff::write_like(&path, &g, &diff, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![
+        pyfmt::format(
+            t(lang, "Выемка %.4g м³, насыпь %.4g м³, нетто %.4g м³.", "Cut %.4g m³, fill %.4g m³, net %.4g m³."),
+            &[Arg::from(rep.cut), Arg::from(rep.fill), Arg::from(rep.net)],
+        ),
+        pyfmt::format(
+            t(lang, "Ячеек: выемка %d, насыпь %d, без изменений %d.", "Cells: cut %d, fill %d, unchanged %d."),
+            &[Arg::from(rep.cut_cells as f64), Arg::from(rep.fill_cells as f64), Arg::from(rep.flat_cells as f64)],
+        ),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.21 Демо-карьер: команда `topo-demo-pit`.
+pub fn topo_demo_pit(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let rows = params["rows"].as_u64().unwrap_or(200).max(10) as usize;
+    let cols = params["cols"].as_u64().unwrap_or(200).max(10) as usize;
+    let cell = params["cell"].as_f64().unwrap_or(1.0).max(1e-6);
+    let dir = run_dir("topo-demo-pit")?;
+    let z = crate::topo_form::demo_quarry(rows, cols);
+    let grid = geotiff::Grid::from_geotransform(cols, rows, 0.0, 0.0, cell);
+    let z32: Vec<f32> = z.iter().map(|&v| v as f32).collect();
+    let path = dir.join(format!("{}.tif", t(lang, "Демо-карьер", "Demo quarry")));
+    geotiff::write_like(&path, &grid, &z32, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![pyfmt::format(
+        t(lang, "Демо-карьер %d на %d ячеек.", "Demo quarry %d by %d cells."),
+        &[Arg::from(cols as f64), Arg::from(rows as f64)],
+    )];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.24 Снятие мостов: команда `bridge-removal`.
+pub fn bridge_removal(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр рельефа.", "No elevation raster is chosen.").to_string())?;
+    let threshold = params["threshold"].as_f64().unwrap_or(1.0).max(0.0);
+    let dir = run_dir("bridge-removal")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    let replaced = crate::topo_ext::remove_bridges(&mut z, g.height, g.width, nodata, threshold);
+    let z32: Vec<f32> = z.iter().map(|&v| if v.is_finite() { v as f32 } else { NODATA as f32 }).collect();
+    let path = dir.join(format!("{}.tif", t(lang, "Без мостов", "Without bridges")));
+    geotiff::write_like(&path, &g, &z32, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![pyfmt::format(
+        t(lang, "Заменено ячеек: %d.", "Cells replaced: %d."),
+        &[Arg::from(replaced as f64)],
+    )];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.19 Кандидаты бровок и подошв: команда `breakline-candidates`.
+pub fn breakline_candidates(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр рельефа.", "No elevation raster is chosen.").to_string())?;
+    let threshold = params["threshold"].as_f64().unwrap_or(10.0).max(0.0);
+    let dir = run_dir("breakline-candidates")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let cand = crate::topo_form::brow_sole_candidates(
+        &g.z, g.height, g.width, nodata, g.cell.0, threshold,
+    );
+    let (x0, y0) = g.origin();
+    let (cx, cy) = g.cell;
+    let mut features = Vec::new();
+    let (mut n_brow, mut n_sole) = (0usize, 0usize);
+    for c in &cand {
+        let kind = match c.kind {
+            crate::topo_form::BrowSoleKind::Brow => {
+                n_brow += 1;
+                "brow"
+            }
+            crate::topo_form::BrowSoleKind::Sole => {
+                n_sole += 1;
+                "sole"
+            }
+        };
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [x0 + (c.col as f64 + 0.5) * cx, y0 - (c.row as f64 + 0.5) * cy]},
+            "properties": {"kind": kind, "z": c.z, "contrast": c.contrast}
+        }));
+    }
+    let name = t(lang, "Кандидаты бровок и подошв", "Breakline candidates");
+    host.call("host.addLayer", json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}))?;
+    let lines = vec![pyfmt::format(
+        t(lang, "Бровок: %d, подошв: %d.", "Brows: %d, soles: %d."),
+        &[Arg::from(n_brow as f64), Arg::from(n_sole as f64)],
+    )];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.22 Снятие высот с ЦМР: команда `snap-elevations`.
+pub fn snap_elevations(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let points = params["points"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран слой точек.", "No point layer is chosen.").to_string())?;
+    let dem = params["dem"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string())?;
+    let bilinear = params["sampling"].as_str() != Some("nearest");
+    let dir = run_dir("snap-elevations")?;
+    let g = export_raster(host, dem, &dir)?;
+    let fc = host.call("host.features", json!({"layer": points, "crs": "layer"}))?;
+    let (x0, y0) = g.origin();
+    let gt = [x0, g.cell.0, 0.0, y0, 0.0, -g.cell.1];
+    let mut features = Vec::new();
+    let mut got = 0usize;
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let Some(c) = f["geometry"]["coordinates"].as_array() else { continue };
+        let (Some(x), Some(y)) = (c.first().and_then(J::as_f64), c.get(1).and_then(J::as_f64)) else { continue };
+        let z = crate::section::sample_grid_points(&g.z, g.height, g.width, &gt, &[x], &[y], bilinear)[0];
+        let mut props = f["properties"].clone();
+        if let Some(o) = props.as_object_mut() {
+            o.insert("z".into(), if z.is_finite() { json!(z) } else { J::Null });
+        }
+        if z.is_finite() {
+            got += 1;
+        }
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [x, y]},
+            "properties": props
+        }));
+    }
+    let name = t(lang, "Точки с высотами", "Points with elevations");
+    host.call("host.addLayer", json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}))?;
+    let lines = vec![pyfmt::format(
+        t(lang, "Высота снята в %d точках из %d.", "Elevation read at %d of %d points."),
+        &[Arg::from(got as f64), Arg::from(features.len() as f64)],
+    )];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.23 Линии стока от точек: команда `downhill-trace`.
+pub fn downhill_trace(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let starts = params["starts"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран слой точек.", "No point layer is chosen.").to_string())?;
+    let dem = params["dem"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string())?;
+    let fill = params["fill"].as_bool().unwrap_or(true);
+    let dir = run_dir("downhill-trace")?;
+    let g = export_raster(host, dem, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    if fill {
+        crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    }
+    let d = crate::topo_flow::d8_flow(&z, g.height, g.width, nodata);
+    let fc = host.call("host.features", json!({"layer": starts, "crs": "layer"}))?;
+    let (x0, y0) = g.origin();
+    let (cx, cy) = g.cell;
+    const OFF: [(isize, isize); 8] = [(-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0)];
+    let mut features = Vec::new();
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let Some(c) = f["geometry"]["coordinates"].as_array() else { continue };
+        let (Some(x), Some(y)) = (c.first().and_then(J::as_f64), c.get(1).and_then(J::as_f64)) else { continue };
+        let col = ((x - x0) / cx).floor() as isize;
+        let row = ((y0 - y) / cy).floor() as isize;
+        if row < 0 || row >= g.height as isize || col < 0 || col >= g.width as isize {
+            continue;
+        }
+        let mut cells = vec![(row as usize, col as usize)];
+        let mut seen = vec![false; g.width * g.height];
+        let mut r = row as usize;
+        let mut cc = col as usize;
+        seen[r * g.width + cc] = true;
+        while d[r * g.width + cc] >= 0 {
+            let (dr, dc) = OFF[d[r * g.width + cc] as usize];
+            let nr = r as isize + dr;
+            let nc = cc as isize + dc;
+            if nr < 0 || nr >= g.height as isize || nc < 0 || nc >= g.width as isize {
+                break;
+            }
+            let (nr, nc) = (nr as usize, nc as usize);
+            if seen[nr * g.width + nc] {
+                break;
+            }
+            seen[nr * g.width + nc] = true;
+            cells.push((nr, nc));
+            r = nr;
+            cc = nc;
+        }
+        if cells.len() < 2 {
+            continue;
+        }
+        let coords: Vec<J> = cells.iter().map(|&(r, c)| json!([x0 + (c as f64 + 0.5) * cx, y0 - (r as f64 + 0.5) * cy])).collect();
+        features.push(json!({"type": "Feature", "geometry": {"type": "LineString", "coordinates": coords}, "properties": {"cells": cells.len() as i64}}));
+    }
+    let name = t(lang, "Линии стока", "Downhill traces");
+    host.call("host.addLayer", json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}))?;
+    let lines = vec![pyfmt::format(t(lang, "Линий: %d.", "Traces: %d."), &[Arg::from(features.len() as f64)])];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.17 Отчёт по водосбору: команда `catchment-stats`.
+pub fn catchment_stats(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let basins = params["basins"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр бассейнов.", "No basin raster is chosen.").to_string())?;
+    let dem = params["dem"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string())?;
+    let dir = run_dir("catchment-stats")?;
+    let gb = export_raster(host, basins, &dir)?;
+    let gd = export_raster(host, dem, &dir)?;
+    if gb.width != gd.width || gb.height != gd.height {
+        return Err(t(lang, "Растры разного размера.", "The rasters have different sizes.").to_string());
+    }
+    let (x0, y0) = gb.origin();
+    let (cx, cy) = gb.cell;
+    let mut by: std::collections::BTreeMap<i64, (usize, f64, f64, f64, f64, f64, f64)> = std::collections::BTreeMap::new();
+    for k in 0..gb.z.len() {
+        let id = gb.z[k];
+        if !id.is_finite() || id <= 0.0 {
+            continue;
+        }
+        let id = id.round() as i64;
+        let e = by.entry(id).or_insert((0, 0.0, f64::INFINITY, f64::NEG_INFINITY, 0.0, 0.0, 0.0));
+        e.0 += 1;
+        let z = gd.z[k];
+        if z.is_finite() {
+            e.1 += z;
+            e.2 = e.2.min(z);
+            e.3 = e.3.max(z);
+        }
+        let r = k / gb.width;
+        let c = k % gb.width;
+        e.4 += x0 + (c as f64 + 0.5) * cx;
+        e.5 += y0 - (r as f64 + 0.5) * cy;
+    }
+    let mut features = Vec::new();
+    for (id, (n, zsum, zmin, zmax, xs, ys, _)) in &by {
+        let area = *n as f64 * cx * cy;
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [xs / *n as f64, ys / *n as f64]},
+            "properties": {
+                "basin": id,
+                "area_km2": area / 1e6,
+                "cells": *n as i64,
+                "z_mean": zsum / *n as f64,
+                "z_min": if zmin.is_finite() { *zmin } else { f64::NAN },
+                "z_max": if zmax.is_finite() { *zmax } else { f64::NAN }
+            }
+        }));
+    }
+    let name = t(lang, "Отчёт по водосборам", "Catchment report");
+    host.call("host.addLayer", json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}))?;
+    let lines = vec![pyfmt::format(t(lang, "Бассейнов: %d.", "Basins: %d."), &[Arg::from(features.len() as f64)])];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

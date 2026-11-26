@@ -600,6 +600,172 @@ fn ditch_catchment_adds_a_point() {
 }
 
 #[test]
+fn cut_fill_reports_volumes() {
+    let dir = std::env::temp_dir().join(format!("isoliner-cf-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ground = dir.join("ground.tif");
+    let plan = dir.join("plan.tif");
+    let gz = vec![10.0f32; 25];
+    let mut pz = vec![9.0f32; 25];
+    pz[12] = 11.0;
+    write_grid(&ground, &gz, 5, 5, 1.0, 0.0, 0.0);
+    write_grid(&plan, &pz, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("ground".into(), ground);
+    host.rasters.insert("plan".into(), plan);
+    let out = raster_cmd::cut_fill_cmd(
+        &mut host,
+        &json!({"ground": "ground", "plan": "plan"}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Cut 24"), "{report}");
+    assert!(report.contains("fill 1"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn bridge_removal_replaces_the_spike() {
+    let dir = std::env::temp_dir().join(format!("isoliner-br-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("bridge.tif");
+    let mut z = vec![10.0f32; 25];
+    z[12] = 30.0;
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::bridge_removal(
+        &mut host,
+        &json!({"input": "dem", "threshold": 5.0}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert!(g.z[12] < 30.0, "spike stayed {}", g.z[12]);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Cells replaced:"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn snap_elevations_writes_z() {
+    let dir = std::env::temp_dir().join(format!("isoliner-se-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dem.tif");
+    let mut z = vec![0.0f32; 25];
+    for r in 0..5 {
+        for c in 0..5 {
+            z[r * 5 + c] = 10.0 - r as f32;
+        }
+    }
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::snap_elevations(
+        &mut host,
+        &json!({"points": "wells", "dem": "dem", "sampling": "Bilinear"}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Elevation read at"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn downhill_trace_adds_lines() {
+    let dir = std::env::temp_dir().join(format!("isoliner-dt-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dem.tif");
+    let mut z = vec![0.0f32; 36];
+    for r in 0..6 {
+        for c in 0..6 {
+            z[r * 6 + c] = 10.0 - (r + c) as f32;
+        }
+    }
+    write_grid(&src, &z, 6, 6, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::downhill_trace(
+        &mut host,
+        &json!({"starts": "gauges", "dem": "dem", "fill": true}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Traces:"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn catchment_stats_reports_basins() {
+    let dir = std::env::temp_dir().join(format!("isoliner-cs-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let basins = dir.join("basins.tif");
+    let dem = dir.join("dem.tif");
+    let mut bz = vec![1.0f32; 25];
+    for k in 0..12 {
+        bz[k] = 2.0;
+    }
+    let dz: Vec<f32> = (0..25).map(|k| 10.0 + k as f32).collect();
+    write_grid(&basins, &bz, 5, 5, 1.0, 0.0, 0.0);
+    write_grid(&dem, &dz, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("basins".into(), basins);
+    host.rasters.insert("dem".into(), dem);
+    let out = raster_cmd::catchment_stats(
+        &mut host,
+        &json!({"basins": "basins", "dem": "dem"}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Basins: 2"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn breakline_candidates_adds_points() {
+    let dir = std::env::temp_dir().join(format!("isoliner-bc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("step.tif");
+    let mut z = vec![0.0f32; 49];
+    for r in 0..7 {
+        for c in 0..7 {
+            z[r * 7 + c] = if r < 3 { 20.0 } else { 10.0 };
+        }
+    }
+    write_grid(&src, &z, 7, 7, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::breakline_candidates(
+        &mut host,
+        &json!({"input": "dem", "threshold": 5.0}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Brows:"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn demo_pit_adds_a_raster() {
+    let mut host = Fake::default();
+    let out = raster_cmd::topo_demo_pit(
+        &mut host,
+        &json!({"rows": 50, "cols": 50, "cell": 1.0}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Demo quarry"));
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(

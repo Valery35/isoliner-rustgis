@@ -56,6 +56,13 @@ pub mod tab {
                     Item::Command("peaks-pits"),
                     Item::Command("gauge-report"),
                     Item::Command("ditch-catchment"),
+                    Item::Command("catchment-stats"),
+                    Item::Command("cut-fill"),
+                    Item::Command("breakline-candidates"),
+                    Item::Command("topo-demo-pit"),
+                    Item::Command("snap-elevations"),
+                    Item::Command("downhill-trace"),
+                    Item::Command("bridge-removal"),
                 ],
             },
             Group {
@@ -231,6 +238,46 @@ impl Product for Isoliner {
             }
             "ditch-catchment" => {
                 match crate::raster_cmd::ditch_catchment(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "catchment-stats" => {
+                match crate::raster_cmd::catchment_stats(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "cut-fill" => match crate::raster_cmd::cut_fill_cmd(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
+            "breakline-candidates" => {
+                match crate::raster_cmd::breakline_candidates(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "topo-demo-pit" => {
+                match crate::raster_cmd::topo_demo_pit(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "snap-elevations" => {
+                match crate::raster_cmd::snap_elevations(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "downhill-trace" => {
+                match crate::raster_cmd::downhill_trace(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "bridge-removal" => {
+                match crate::raster_cmd::bridge_removal(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
                     Err(e) => json!({"error": e}),
                 }
