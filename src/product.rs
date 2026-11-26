@@ -61,6 +61,7 @@ pub mod tab {
                 layout: Layout::Large,
                 items: &[
                     Item::Command("contour-residual"),
+                    Item::Command("terracing-check"),
                     Item::Command("terrace-smooth"),
                 ],
             },
@@ -210,6 +211,12 @@ impl Product for Isoliner {
             }
             "contour-residual" => {
                 match crate::raster_cmd::contour_residual(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "terracing-check" => {
+                match crate::raster_cmd::terracing_check(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
                     Err(e) => json!({"error": e}),
                 }

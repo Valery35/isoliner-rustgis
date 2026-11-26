@@ -2029,6 +2029,84 @@ pub fn contour_residual(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.13 Диагностика террасинга: команда `terracing-check`.
+pub fn terracing_check(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(lang, "Не выбран растр ЦМР.", "No DEM raster is chosen.").to_string()
+        })?;
+    let interval = params["interval"].as_f64().unwrap_or(0.0);
+    if interval <= 0.0 {
+        return Err(t(
+            lang,
+            "Задайте сечение рельефа больше нуля.",
+            "Set a contour interval greater than zero.",
+        )
+        .to_string());
+    }
+    let base = params["base"].as_f64().unwrap_or(0.0);
+    let band = params["band"].as_f64().unwrap_or(0.1).clamp(0.01, 0.45);
+    let min_drop = params["min_drop"].as_f64().unwrap_or(0.01).clamp(0.0, 1.0);
+    let dir = run_dir("terracing-check")?;
+    let g = export_raster(host, layer, &dir)?;
+    let kv = crate::topo_break::profile_curvature(&g.z, g.height, g.width, g.cell.0);
+    let kv32: Vec<f32> = kv
+        .iter()
+        .map(|&v| if v.is_finite() { v as f32 } else { NODATA as f32 })
+        .collect();
+    let path = dir.join(format!(
+        "{}.tif",
+        t(lang, "Вертикальная кривизна", "Profile curvature")
+    ));
+    geotiff::write_like(&path, &g, &kv32, NODATA)?;
+    add_raster(host, &path)?;
+    let s = crate::topo_break::terracing_stats(
+        &g.z, g.height, g.width, g.cell.0, interval, base, band, min_drop,
+    );
+    let verdict = if s.attract_ratio >= 2.0 {
+        t(lang, "террасинг есть", "terraced")
+    } else if s.attract_ratio >= 1.5 {
+        t(lang, "похоже на террасинг", "suspect")
+    } else {
+        t(lang, "террасинга нет", "clean")
+    };
+    let lines = vec![
+        pyfmt::format(
+            t(
+                lang,
+                "Кривизна: %d ячеек, средняя |k| %.4g, p95 %.4g, максимум %.4g.",
+                "Curvature: %d cells, mean |k| %.4g, p95 %.4g, max %.4g.",
+            ),
+            &[
+                Arg::from(s.n_curv as f64),
+                Arg::from(s.curv_mean_abs),
+                Arg::from(s.curv_p95_abs),
+                Arg::from(s.curv_max_abs),
+            ],
+        ),
+        pyfmt::format(
+            t(
+                lang,
+                "Притяжение к уровням: %.3g (ожидалось %.3g), отношение %.3g; плоских исключено %.1f%%.",
+                "Attraction to levels: %.3g (expected %.3g), ratio %.3g; flat skipped %.1f%%.",
+            ),
+            &[
+                Arg::from(s.attract_share),
+                Arg::from(s.attract_expect),
+                Arg::from(s.attract_ratio),
+                Arg::from(100.0 * s.flat_skipped),
+            ],
+        ),
+        pyfmt::format(
+            t(lang, "Вердикт: %s.", "Verdict: %s."),
+            &[Arg::from(verdict)],
+        ),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

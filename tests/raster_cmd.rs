@@ -490,6 +490,41 @@ fn contour_residual_reads_the_dem() {
 }
 
 #[test]
+fn terracing_check_outputs_curvature() {
+    let dir = std::env::temp_dir().join(format!("isoliner-tc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dem.tif");
+    let rows = 10;
+    let cols = 10;
+    let mut z = vec![0.0f32; rows * cols];
+    for r in 0..rows {
+        for c in 0..cols {
+            z[r * cols + c] = r as f32 * 0.1;
+        }
+    }
+    write_grid(&src, &z, rows, cols, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::terracing_check(
+        &mut host,
+        &json!({
+            "input": "dem",
+            "interval": 2.0,
+            "base": 0.0,
+            "band": 0.1,
+            "min_drop": 0.01
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Curvature:"), "{report}");
+    assert!(report.contains("Verdict:"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(

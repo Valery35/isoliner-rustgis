@@ -193,9 +193,234 @@ pub fn diagnose_terracing(
     out
 }
 
+/// Перепад высот на ячейку: модуль градиента, умноженный на шаг.
+/// Края считаются односторонними разностями, как `np.gradient`.
+pub fn drop_per_cell(z: &[f64], rows: usize, cols: usize) -> Vec<f64> {
+    let n = rows * cols;
+    let mut out = vec![f64::NAN; n];
+    if n == 0 {
+        return out;
+    }
+    let valid: Vec<bool> = z.iter().map(|v| v.is_finite()).collect();
+    let sum: f64 = z.iter().zip(&valid).filter(|&(_, &b)| b).map(|(&v, _)| v).sum();
+    let cnt = valid.iter().filter(|&&b| b).count() as f64;
+    if cnt == 0.0 {
+        return out;
+    }
+    let off = sum / cnt;
+    let zc: Vec<f64> = z
+        .iter()
+        .zip(&valid)
+        .map(|(&v, &b)| if b { v - off } else { 0.0 })
+        .collect();
+    for r in 0..rows {
+        for c in 0..cols {
+            let k = r * cols + c;
+            if !valid[k] {
+                continue;
+            }
+            let gx = if c == 0 {
+                zc[k + 1] - zc[k]
+            } else if c == cols - 1 {
+                zc[k] - zc[k - 1]
+            } else {
+                0.5 * (zc[k + 1] - zc[k - 1])
+            };
+            let gy = if r == 0 {
+                zc[k + cols] - zc[k]
+            } else if r == rows - 1 {
+                zc[k] - zc[k - cols]
+            } else {
+                0.5 * (zc[k + cols] - zc[k - cols])
+            };
+            out[k] = (gx * gx + gy * gy).sqrt();
+        }
+    }
+    out
+}
+
+/// Профильная (вертикальная) кривизна Zevenbergen-Thorne: вторая
+/// производная вдоль склона. Положительная - вогнутость, отрицательная -
+/// выпуклость. На рамке NaN.
+pub fn profile_curvature(z: &[f64], rows: usize, cols: usize, cell: f64) -> Vec<f64> {
+    let n = rows * cols;
+    let mut out = vec![f64::NAN; n];
+    if n == 0 || rows < 3 || cols < 3 {
+        return out;
+    }
+    let c = if cell > 0.0 { cell } else { 1.0 };
+    let get = |r: isize, cc: isize| -> f64 {
+        if r < 0 || r >= rows as isize || cc < 0 || cc >= cols as isize {
+            f64::NAN
+        } else {
+            z[r as usize * cols + cc as usize]
+        }
+    };
+    for r in 1..rows - 1 {
+        for cc in 1..cols - 1 {
+            let k = r * cols + cc;
+            let z00 = get(r as isize, cc as isize);
+            let z10 = get(r as isize, cc as isize + 1);
+            let z_10 = get(r as isize, cc as isize - 1);
+            let z01 = get(r as isize + 1, cc as isize);
+            let z_11 = get(r as isize - 1, cc as isize);
+            let z11 = get(r as isize + 1, cc as isize + 1);
+            let z1_1 = get(r as isize + 1, cc as isize - 1);
+            let z_11_ = get(r as isize - 1, cc as isize + 1);
+            let z_1_1 = get(r as isize - 1, cc as isize - 1);
+            let all = [z00, z10, z_10, z01, z_11, z11, z1_1, z_11_, z_1_1];
+            if all.iter().any(|v| !v.is_finite()) {
+                continue;
+            }
+            let zx = (z10 - z_10) / (2.0 * c);
+            let zy = (z01 - z_11) / (2.0 * c);
+            let num = zx * zx * (z10 - 2.0 * z00 + z_10) / (c * c)
+                + zy * zy * (z01 - 2.0 * z00 + z_11) / (c * c)
+                + 2.0 * zx * zy * (z11 - z1_1 - z_11_ + z_1_1) / (4.0 * c * c);
+            let p = zx * zx + zy * zy;
+            if p < 1e-12 {
+                continue;
+            }
+            out[k] = -num / (p * (1.0 + p).powf(1.5));
+        }
+    }
+    out
+}
+
+/// Плоские ячейки: перепад меньше `min_drop_frac` доли сечения.
+pub fn flat_mask(
+    z: &[f64],
+    rows: usize,
+    cols: usize,
+    interval: f64,
+    min_drop_frac: f64,
+) -> Vec<bool> {
+    let drop = drop_per_cell(z, rows, cols);
+    let thr = min_drop_frac * interval;
+    drop.iter()
+        .map(|v| v.is_finite() && *v < thr)
+        .collect()
+}
+
+/// Индекс притяжения отметок к уровням: (доля, ожидаемая доля, отношение,
+/// доля исключённых плоских). None, если считать не по чему.
+pub fn level_attraction(
+    z: &[f64],
+    rows: usize,
+    cols: usize,
+    interval: f64,
+    base: f64,
+    band: f64,
+    min_drop_frac: f64,
+) -> Option<(f64, f64, f64, f64)> {
+    if interval <= 0.0 {
+        return None;
+    }
+    let valid: Vec<bool> = z.iter().map(|v| v.is_finite()).collect();
+    let total = valid.iter().filter(|&&b| b).count();
+    if total == 0 {
+        return None;
+    }
+    let mut skipped = 0.0;
+    let mut use_cell = valid.clone();
+    let flat = flat_mask(z, rows, cols, interval, min_drop_frac);
+    let flat_count = use_cell.iter().zip(&flat).filter(|&(v, &f)| *v && f).count();
+    let kept = total - flat_count;
+    if kept >= 100 {
+        skipped = flat_count as f64 / total as f64;
+        for i in 0..use_cell.len() {
+            if flat[i] {
+                use_cell[i] = false;
+            }
+        }
+    }
+    let mut hits = 0usize;
+    let mut count = 0usize;
+    for i in 0..z.len() {
+        if !use_cell[i] {
+            continue;
+        }
+        count += 1;
+        let phase = (((z[i] - base) / interval + 0.5) % 1.0 - 0.5).abs();
+        if phase <= band {
+            hits += 1;
+        }
+    }
+    if count == 0 {
+        return None;
+    }
+    let share = hits as f64 / count as f64;
+    let expect = 2.0 * band;
+    Some((share, expect, share / expect, skipped))
+}
+
+/// Сводка по террасингу.
+#[derive(Debug, Clone, Default)]
+pub struct TerracingStats {
+    pub n_curv: usize,
+    pub curv_mean_abs: f64,
+    pub curv_p95_abs: f64,
+    pub curv_max_abs: f64,
+    pub attract_share: f64,
+    pub attract_expect: f64,
+    pub attract_ratio: f64,
+    pub flat_skipped: f64,
+}
+
+/// Сводка: кривизна плюс притяжение к уровням.
+pub fn terracing_stats(
+    z: &[f64],
+    rows: usize,
+    cols: usize,
+    cell: f64,
+    interval: f64,
+    base: f64,
+    band: f64,
+    min_drop_frac: f64,
+) -> TerracingStats {
+    let kv = profile_curvature(z, rows, cols, cell);
+    let mut abs: Vec<f64> = kv.iter().filter(|v| v.is_finite()).map(|v| v.abs()).collect();
+    let mut s = TerracingStats {
+        n_curv: abs.len(),
+        ..Default::default()
+    };
+    if !abs.is_empty() {
+        let n = abs.len() as f64;
+        s.curv_mean_abs = abs.iter().sum::<f64>() / n;
+        abs.sort_by(f64::total_cmp);
+        let idx = ((0.95 * (n - 1.0)).round() as usize).min(abs.len() - 1);
+        s.curv_p95_abs = abs[idx];
+        s.curv_max_abs = *abs.last().unwrap_or(&0.0);
+    }
+    if let Some((share, expect, ratio, skipped)) =
+        level_attraction(z, rows, cols, interval, base, band, min_drop_frac)
+    {
+        s.attract_share = share;
+        s.attract_expect = expect;
+        s.attract_ratio = ratio;
+        s.flat_skipped = skipped;
+    }
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Притяжение к уровням ловит ступенчатую поверхность.
+    #[test]
+    fn terracing_picks_a_staircase() {
+        let rows = 40;
+        let cols = 40;
+        let smooth: Vec<f64> = (0..rows * cols)
+            .map(|k| (k / cols) as f64 * 0.1)
+            .collect();
+        let terraced: Vec<f64> = smooth.iter().map(|v| (v / 2.0).round() * 2.0).collect();
+        let a = terracing_stats(&smooth, rows, cols, 1.0, 2.0, 0.0, 0.1, 0.01);
+        let b = terracing_stats(&terraced, rows, cols, 1.0, 2.0, 0.0, 0.1, 0.01);
+        assert!(a.attract_ratio < 1.5, "smooth ratio {}", a.attract_ratio);
+        assert!(b.attract_ratio > 2.0, "terraced ratio {}", b.attract_ratio);
+    }
 
     /// Ступень на склоне — терраса.
     #[test]
