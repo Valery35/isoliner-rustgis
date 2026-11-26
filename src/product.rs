@@ -42,7 +42,13 @@ pub mod tab {
             Group {
                 label: l("1. Grid and isolines", "1. Грид и изолинии"),
                 layout: Layout::Large,
-                items: &[Item::Command("kriging-2d"), Item::Command("minimum-curvature")],
+                items: &[
+                    Item::Command("kriging-2d"),
+                    Item::Command("minimum-curvature"),
+                    Item::Command("mba-grid"),
+                    Item::Command("raster-to-isolines"),
+                    Item::Command("variogram-map"),
+                ],
             },
             Group {
                 label: l("2. Topography", "2. Топография"),
@@ -103,29 +109,10 @@ pub fn home() -> std::path::PathBuf {
     rustgis_kit::store::temp_home("isoliner")
 }
 
-/// Поля, которых нет в окне RustGIS: RustGIS принимает у инструмента не
-/// больше 32 полей, а у 1.09 их 37. Скрыты дополнительные настройки
-/// решателя минимальной кривизны, расчёт берёт для них умолчания модуля.
-pub const HIDDEN: &[(&str, &[&str])] = &[(
-    "method_crossvalidation",
-    &[
-        "MAX_RESIDUAL",
-        "MAX_ITER",
-        "BOUNDARY_TENSION",
-        "RELAX",
-        "ANISO",
-    ],
-)];
-
-/// Описания инструментов для окна RustGIS: `tools.json` без [`HIDDEN`].
+/// Описания инструментов для окна RustGIS. RustGIS 0.8.0 принимает до
+/// 64 полей на инструмент, поэтому все поля 1.09 идут в окно.
 pub fn catalog() -> Result<Catalog, String> {
-    let mut c = Catalog::parse(TOOLS_JSON)?;
-    for t in &mut c.tools {
-        if let Some((_, keys)) = HIDDEN.iter().find(|(n, _)| *n == t.name) {
-            t.params.retain(|p| !keys.contains(&p.key.as_str()));
-        }
-    }
-    Ok(c)
+    Catalog::parse(TOOLS_JSON)
 }
 
 pub struct Isoliner {
@@ -292,6 +279,22 @@ impl Product for Isoliner {
             }
             "topo2raster" => {
                 match crate::raster_cmd::topo2raster_cmd(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "mba-grid" => match crate::raster_cmd::mba_grid(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
+            "raster-to-isolines" => {
+                match crate::raster_cmd::raster_to_isolines(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "variogram-map" => {
+                match crate::raster_cmd::variogram_map_cmd(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
                     Err(e) => json!({"error": e}),
                 }

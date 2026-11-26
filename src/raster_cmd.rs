@@ -2972,6 +2972,191 @@ fn read_polygons(host: &mut dyn Call, layer: Option<&str>) -> Result<Vec<crate::
     Ok(out)
 }
 
+/// 1.03 MBA: команда `mba-grid`.
+pub fn mba_grid(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let input = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран точечный слой.", "No point layer is chosen.").to_string())?;
+    let zfield = params["zfield"].as_str().unwrap_or("");
+    if zfield.is_empty() {
+        return Err(t(lang, "Не выбрано поле значения.", "No value field is chosen.").to_string());
+    }
+    let cell = params["cell"].as_f64().unwrap_or(0.0);
+    let levels = params["levels"].as_u64().unwrap_or(9).max(1) as usize;
+    let trend = params["trend"].as_str().unwrap_or("none");
+    let dir = run_dir("mba-grid")?;
+    let fc = host.call("host.features", json!({"layer": input, "crs": "layer"}))?;
+    let mut pts: Vec<f64> = Vec::new();
+    let mut vals: Vec<f64> = Vec::new();
+    let (mut xmin, mut ymin, mut xmax, mut ymax) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let Some(c) = f["geometry"]["coordinates"].as_array() else { continue };
+        let (Some(x), Some(y)) = (c.first().and_then(J::as_f64), c.get(1).and_then(J::as_f64)) else { continue };
+        let z = f["properties"][zfield]
+            .as_f64()
+            .or_else(|| f["properties"][zfield].as_str().and_then(|s| s.parse().ok()));
+        let Some(z) = z else { continue };
+        pts.push(x);
+        pts.push(y);
+        vals.push(z);
+        xmin = xmin.min(x); xmax = xmax.max(x);
+        ymin = ymin.min(y); ymax = ymax.max(y);
+    }
+    if vals.len() < 2 {
+        return Err(t(lang, "Слишком мало точек.", "Too few points.").to_string());
+    }
+    if let Some(ext) = params["extent"].as_str().filter(|s| !s.is_empty()) {
+        let efc = host.call("host.features", json!({"layer": ext, "crs": "layer"}))?;
+        let (mut a, mut b, mut c, mut d) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for f in efc["features"].as_array().into_iter().flatten() {
+            collect_bbox(&f["geometry"]["coordinates"], &mut a, &mut b, &mut c, &mut d);
+        }
+        if c > a && d > b {
+            xmin = a; ymin = b; xmax = c; ymax = d;
+        }
+    }
+    let diag = ((xmax - xmin).powi(2) + (ymax - ymin).powi(2)).sqrt();
+    let cell = if cell > 0.0 { cell } else { (diag / 200.0).max(1e-6) };
+    let nx = (((xmax - xmin) / cell).ceil() as usize).max(4);
+    let ny = (((ymax - ymin) / cell).ceil() as usize).max(4);
+    let fit = crate::mba::fit(&pts, &vals, Some(&[xmin, ymin]), Some(&[xmax, ymax]), &[nx, ny], levels, None, trend);
+    let xs: Vec<f64> = (0..nx).map(|i| xmin + (i as f64 + 0.5) * cell).collect();
+    let ys: Vec<f64> = (0..ny).map(|j| ymax - (j as f64 + 0.5) * cell).collect();
+    let (z, _shape) = crate::mba::evaluate_grid(&fit, &[xs, ys]);
+    let grid = geotiff::Grid::from_geotransform(nx, ny, xmin, ymin, cell);
+    let z32: Vec<f32> = z.iter().map(|&v| v as f32).collect();
+    let path = dir.join(format!("{}.tif", t(lang, "MBA-грид", "MBA grid")));
+    geotiff::write_like(&path, &grid, &z32, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![
+        pyfmt::format(t(lang, "Точек: %d, сетка %d на %d, ячейка %.4g.", "Points: %d, grid %d by %d, cell %.4g."), &[Arg::from(vals.len() as f64), Arg::from(nx as f64), Arg::from(ny as f64), Arg::from(cell)]),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 1.04 Изолинии из растра: команда `raster-to-isolines`.
+pub fn raster_to_isolines(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let input = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран растр.", "No raster is chosen.").to_string())?;
+    let interval = params["interval"].as_f64().unwrap_or(0.0);
+    let base = params["base"].as_f64().unwrap_or(0.0);
+    let dir = run_dir("raster-to-isolines")?;
+    let g = export_raster(host, input, &dir)?;
+    let (x0, y0) = g.origin();
+    let opts = crate::isolines::ContourOptions {
+        levels: Vec::new(),
+        interval,
+        base,
+        nodata: g.nodata.unwrap_or(f64::NAN),
+        gt: [x0, g.cell.0, 0.0, y0, 0.0, -g.cell.1],
+    };
+    let levels = crate::isolines::compute_levels(&g.z, g.height, g.width, &opts);
+    if levels.is_empty() {
+        return Err(t(lang, "Не удалось определить уровни: задайте сечение.", "Could not determine levels: set the interval.").to_string());
+    }
+    let lines = crate::isolines::contour_lines(&g.z, g.height, g.width, &levels, &opts);
+    let mut features = Vec::new();
+    for l in &lines {
+        let coords: Vec<J> = l.xy.chunks(2).map(|p| json!([p[0], p[1]])).collect();
+        if coords.len() < 2 {
+            continue;
+        }
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": coords},
+            "properties": {"level": l.level}
+        }));
+    }
+    let name = t(lang, "Изолинии", "Isolines");
+    host.call("host.addLayer", json!({"name": name, "geojson": {"type": "FeatureCollection", "features": features}}))?;
+    let lines_report = vec![pyfmt::format(
+        t(lang, "Уровней: %d, линий: %d.", "Levels: %d, lines: %d."),
+        &[Arg::from(levels.len() as f64), Arg::from(features.len() as f64)],
+    )];
+    Ok(json!({"report": lines_report.join("\n"), "messages": lines_report}))
+}
+
+/// 1.07 Вариограммная карта: команда `variogram-map`.
+pub fn variogram_map_cmd(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let input = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран точечный слой.", "No point layer is chosen.").to_string())?;
+    let zfield = params["zfield"].as_str().unwrap_or("");
+    if zfield.is_empty() {
+        return Err(t(lang, "Не выбрано поле значения.", "No value field is chosen.").to_string());
+    }
+    let wfield = params["weight_field"].as_str().unwrap_or("");
+    let n_bins = params["n_bins"].as_u64().unwrap_or(15).clamp(5, 40) as usize;
+    let maxlag = params["maxlag"].as_f64().unwrap_or(0.0);
+    let min_pairs = params["min_pairs"].as_u64().unwrap_or(5).max(1) as usize;
+    let dir = run_dir("variogram-map")?;
+    let fc = host.call("host.features", json!({"layer": input, "crs": "layer"}))?;
+    let mut xs = Vec::new();
+    let mut ys = Vec::new();
+    let mut vs = Vec::new();
+    let mut ws = Vec::new();
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let Some(c) = f["geometry"]["coordinates"].as_array() else { continue };
+        let (Some(x), Some(y)) = (c.first().and_then(J::as_f64), c.get(1).and_then(J::as_f64)) else { continue };
+        let z = f["properties"][zfield]
+            .as_f64()
+            .or_else(|| f["properties"][zfield].as_str().and_then(|s| s.parse().ok()));
+        let Some(z) = z else { continue };
+        xs.push(x);
+        ys.push(y);
+        vs.push(z);
+        if !wfield.is_empty() {
+            if let Some(w) = f["properties"][wfield].as_f64() {
+                ws.push(w);
+            }
+        }
+    }
+    if vs.len() < 3 {
+        return Err(t(lang, "Слишком мало точек.", "Too few points.").to_string());
+    }
+    let wts = if ws.len() == vs.len() { Some(ws.as_slice()) } else { None };
+    let m = crate::variogram_map::variogram_map(
+        &xs,
+        &ys,
+        &vs,
+        n_bins,
+        if maxlag > 0.0 { Some(maxlag) } else { None },
+        min_pairs,
+        200_000,
+        1,
+        12,
+        wts,
+    );
+    let size = m.size;
+    let grid = geotiff::Grid::from_geotransform(size, size, -m.maxlag, -m.maxlag, m.cell);
+    // Строка 0 карты - dy = -maxlag; в GeoTIFF строка 0 - верх (+maxlag).
+    let mut z32 = vec![NODATA as f32; size * size];
+    for j in 0..size {
+        for i in 0..size {
+            let v = m.grid[(size - 1 - j) * size + i];
+            z32[j * size + i] = if v.is_finite() { v as f32 } else { NODATA as f32 };
+        }
+    }
+    let path = dir.join(format!("{}.tif", t(lang, "Вариограммная карта", "Variogram map")));
+    geotiff::write_like(&path, &grid, &z32, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![
+        pyfmt::format(
+            t(lang, "Точек: %d, бинов: %d, шаг %.4g.", "Points: %d, bins: %d, lag %.4g."),
+            &[Arg::from(m.n_used as f64), Arg::from(n_bins as f64), Arg::from(m.cell)],
+        ),
+        pyfmt::format(
+            t(lang, "Анизотропия: азимут %.0f°, коэффициент %.3g, радиус %.4g.", "Anisotropy: azimuth %.0f°, ratio %.3g, range %.4g."),
+            &[Arg::from(m.azimuth), Arg::from(m.anis), Arg::from(m.range_major)],
+        ),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

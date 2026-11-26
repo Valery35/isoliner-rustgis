@@ -8,7 +8,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use isoliner_rustgis::product::{HIDDEN, OPTIONS, TOOLS_JSON};
+use isoliner_rustgis::product::OPTIONS;
 use serde_json::{Value as J, json};
 
 fn path() -> String {
@@ -67,8 +67,8 @@ fn manifest_tools_follow_tools_json() {
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
         );
         let ps = t["params"].as_array().unwrap();
-        // полей может не быть (4.11), больше 32 RustGIS 0.6.0 не примет
-        assert!(ps.len() <= 32);
+        // полей может не быть (4.11), больше 64 RustGIS 0.8.0 не примет
+        assert!(ps.len() <= 64);
         for p in ps {
             let n = p["name"].as_str().unwrap();
             assert!(n.starts_with(|c: char| c.is_ascii_lowercase()), "{n}");
@@ -81,15 +81,6 @@ fn manifest_tools_follow_tools_json() {
                 assert!((1..=64).contains(&ch.len()));
                 assert!(ch.contains(&p["default"]));
             }
-        }
-    }
-    // скрытые поля есть в описании модуля, у каждого есть умолчание
-    let full = rustgis_kit::Catalog::parse(TOOLS_JSON).unwrap();
-    for (name, keys) in HIDDEN {
-        let t = full.tool(name).unwrap();
-        for k in *keys {
-            let p = t.param(k).unwrap_or_else(|| panic!("{name}: нет поля {k}"));
-            assert!(p.default.is_some(), "{name}.{k} без умолчания");
         }
     }
     check_tab(&m);

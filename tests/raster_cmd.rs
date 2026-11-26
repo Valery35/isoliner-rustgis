@@ -837,6 +837,48 @@ fn topo2raster_builds_a_raster() {
 }
 
 #[test]
+fn mba_grid_adds_a_raster() {
+    let mut host = Fake::default();
+    let out = raster_cmd::mba_grid(
+        &mut host,
+        &json!({"input": "wells", "zfield": "z", "cell": 10.0, "levels": 5, "trend": "none"}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Points: 9"));
+}
+
+#[test]
+fn raster_to_isolines_adds_a_layer() {
+    let mut host = Fake::default();
+    let out = raster_cmd::raster_to_isolines(
+        &mut host,
+        &json!({"input": "dem", "interval": 2.0, "base": 0.0}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    let (name, fc) = &host.layers[0];
+    assert_eq!(name, "Isolines");
+    assert!(!fc["features"].as_array().unwrap().is_empty());
+    assert!(out["report"].as_str().unwrap().contains("Levels:"));
+}
+
+#[test]
+fn variogram_map_adds_a_raster() {
+    let mut host = Fake::default();
+    let out = raster_cmd::variogram_map_cmd(
+        &mut host,
+        &json!({"input": "wells", "zfield": "z", "n_bins": 8, "maxlag": 0.0, "min_pairs": 1}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Points: 9"));
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(
