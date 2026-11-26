@@ -117,38 +117,46 @@ pub mod tab {
         label: l("Isoliner", "Isoliner"),
         groups: &[
             Group {
-                label: l("Kriging", "Кригинг"),
-                layout: Layout::Large,
-                items: &[Item::Menu(&VARIOGRAMS), Item::Menu(&GRID_EXAMPLES)],
-            },
-            Group {
-                label: l("Topography", "Топография"),
+                label: l("1. Grid and isolines", "1. Грид и изолинии"),
                 layout: Layout::Large,
                 items: &[
-                    Item::Menu(&CONTOURS),
-                    Item::Command("slope-aspect"),
                     Item::Command("kriging-2d"),
                     Item::Command("minimum-curvature"),
-                    Item::Command("probability-threshold"),
-                    Item::Command("flow-gradient"),
-                    Item::Command("subsidence-tilt-curvature"),
-                    Item::Command("subsidence-horizontal"),
+                    Item::Menu(&VARIOGRAMS),
+                    Item::Menu(&GRID_EXAMPLES),
                 ],
             },
             Group {
-                label: l("Analysis", "Анализ"),
+                label: l("2. Topography", "2. Топография"),
                 layout: Layout::Large,
-                items: &[Item::Menu(&DENSITY)],
+                items: &[Item::Command("slope-aspect"), Item::Menu(&CONTOURS)],
             },
             Group {
-                label: l("Section", "Разрез"),
+                label: l("4. Additional analysis tools", "4. Дополнительные инструменты анализа"),
+                layout: Layout::Large,
+                items: &[
+                    Item::Command("probability-threshold"),
+                    Item::Command("flow-gradient"),
+                    Item::Menu(&DENSITY),
+                ],
+            },
+            Group {
+                label: l("5. Section", "5. Разрез"),
                 layout: Layout::Large,
                 items: &[Item::Menu(&DRILLHOLES)],
             },
             Group {
-                label: l("Fractals", "Фракталы"),
+                label: l("8. Fractal analysis", "8. Фрактальный анализ"),
                 layout: Layout::Large,
                 items: &[Item::Menu(&DIMENSION)],
+            },
+            Group {
+                label: l("10. Subsidence", "10. Сдвигения"),
+                layout: Layout::Large,
+                items: &[
+                    Item::Command("subsidence-tilt-curvature"),
+                    Item::Command("subsidence-horizontal"),
+                ],
             },
             Group {
                 label: l("Help", "Справка"),
@@ -294,7 +302,7 @@ fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
     })
 }
 
-/// `plugin.json` с разделом `tools` и переводами его строк.
+/// `plugin.json` с разделами `tools` и `tab` и переводами их строк.
 pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
     let (mut tools, mut ru) = rustgis_kit::manifest::tools_section(catalog, &OPTIONS);
     // Коды инструментов из tools.json нужны для группировки в панели Инструментов.
@@ -319,5 +327,18 @@ pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
             }
         }
     }
-    rustgis_kit::manifest::splice(base, &tools, &ru)
+    // Вкладка ленты собирается из product::tab::TAB.
+    let base_val: J = serde_json::from_str(base).map_err(|e| e.to_string())?;
+    let empty = Vec::new();
+    let commands: Vec<&str> = base_val["commands"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .map(|c| c["id"].as_str().unwrap_or(""))
+        .collect();
+    let (tab, tab_ru) =
+        rustgis_kit::manifest::tab_section(&tab::TAB, catalog, &OPTIONS, &commands)
+            .map_err(|e| e.to_string())?;
+    ru.extend(tab_ru);
+    rustgis_kit::manifest::splice_all(base, &tools, Some(&tab), &ru)
 }

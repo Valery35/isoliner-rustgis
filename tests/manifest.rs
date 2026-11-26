@@ -112,11 +112,12 @@ const ICONS: &[&str] = &[
 /// Группа вкладки по первой цифре кода инструмента модуля.
 fn group_of(code: &str) -> &'static str {
     match code.split('.').next().unwrap_or("") {
-        "1" => "Kriging",
-        "2" => "Topography",
-        "3" => "Analysis",
-        "4" => "Section",
-        "7" => "Fractals",
+        "1" => "1. Grid and isolines",
+        "2" => "2. Topography",
+        "3" => "4. Additional analysis tools",
+        "4" => "5. Section",
+        "7" => "8. Fractal analysis",
+        "9" => "10. Subsidence",
         _ => "?",
     }
 }
