@@ -52,6 +52,7 @@ pub mod tab {
                     Item::Command("fill-depressions"),
                     Item::Command("flow-d8"),
                     Item::Command("river-network"),
+                    Item::Command("basins"),
                     Item::Command("peaks-pits"),
                 ],
             },
@@ -186,6 +187,10 @@ impl Product for Isoliner {
                 }
             }
             "peaks-pits" => match crate::raster_cmd::peaks_pits(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
+            "basins" => match crate::raster_cmd::basins(host, &req["params"], lang) {
                 Ok(v) => json!({"ok": v}),
                 Err(e) => json!({"error": e}),
             },

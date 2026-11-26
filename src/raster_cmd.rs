@@ -1638,6 +1638,87 @@ pub fn peaks_pits(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, Stri
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.07 Бассейны и водоразделы: команда `basins` (растр меток).
+/// Полигоны пока не строятся: выход - растр номеров бассейнов.
+pub fn basins(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбрана входная ЦМР.",
+                "No input DEM is chosen.",
+            )
+            .to_string()
+        })?;
+    let threshold = params["threshold"].as_f64().unwrap_or(1.0).max(1.0);
+    let fill = params["fill"].as_bool().unwrap_or(true);
+    let dir = run_dir("basins")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    if fill {
+        crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    }
+    let d = crate::topo_flow::d8_flow(&z, g.height, g.width, nodata);
+    let acc = crate::topo_flow::flow_accumulation(&d, None, g.height, g.width, nodata);
+    let n = g.width * g.height;
+    // Устья: ячейки на рамке, откуда поток уходит с грида (нет нижнего
+    // соседа внутри), с аккумуляцией не ниже порога. Внутренние плоские
+    // участки без стока устьями не считаются.
+    let mut outlets: Vec<usize> = (0..n)
+        .filter(|&k| {
+            if !acc[k].is_finite() || acc[k] < threshold || d[k] >= 0 {
+                return false;
+            }
+            let r = k / g.width;
+            let c = k % g.width;
+            r == 0 || r == g.height - 1 || c == 0 || c == g.width - 1
+        })
+        .collect();
+    outlets.sort_by(|&a, &b| {
+        acc[b]
+            .partial_cmp(&acc[a])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let mut labels = vec![0.0f32; n];
+    let mut id = 1i32;
+    for &k in &outlets {
+        let r = k / g.width;
+        let c = k % g.width;
+        let ws = crate::topo_flow::watershed(&d, g.height, g.width, r, c);
+        let mut touched = false;
+        for (i, &b) in ws.iter().enumerate() {
+            if b && labels[i] == 0.0 {
+                labels[i] = id as f32;
+                touched = true;
+            }
+        }
+        if touched {
+            id += 1;
+        }
+    }
+    let path = dir.join(format!("{}.tif", t(lang, "Бассейны", "Basins")));
+    geotiff::write_like(&path, &g, &labels, 0.0)?;
+    add_raster(host, &path)?;
+    let lines = vec![
+        pyfmt::format(
+            t(lang, "Бассейнов: %d.", "Basins: %d."),
+            &[Arg::from(f64::from(id - 1))],
+        ),
+        pyfmt::format(
+            t(
+                lang,
+                "Порог аккумуляции: %.4g ячеек.",
+                "Accumulation threshold: %.4g cells.",
+            ),
+            &[Arg::from(threshold)],
+        ),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

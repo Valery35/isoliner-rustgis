@@ -146,13 +146,14 @@ fn heap_pop(heap: &mut Vec<(f64, usize)>) -> Option<(f64, usize)> {
     Some(top)
 }
 
-/// Добавление элемента в кучу.
+/// Добавление элемента в кучу. Куча минимальная: priority-flood берёт
+/// самую низкую ячейку первой.
 fn heap_push(heap: &mut Vec<(f64, usize)>, item: (f64, usize)) {
     heap.push(item);
     let mut i = heap.len() - 1;
     while i > 0 {
         let parent = (i - 1) / 2;
-        if heap[i].0 <= heap[parent].0 {
+        if heap[i].0 >= heap[parent].0 {
             break;
         }
         heap.swap(i, parent);
@@ -160,7 +161,7 @@ fn heap_push(heap: &mut Vec<(f64, usize)>, item: (f64, usize)) {
     }
 }
 
-/// Просеивание вниз.
+/// Просеивание вниз: наверх поднимается меньший из детей.
 fn sift_down(heap: &mut [(f64, usize)], start: usize) {
     let n = heap.len();
     let mut i = start;
@@ -168,10 +169,10 @@ fn sift_down(heap: &mut [(f64, usize)], start: usize) {
         let left = 2 * i + 1;
         let right = 2 * i + 2;
         let mut best = i;
-        if left < n && heap[left].0 > heap[best].0 {
+        if left < n && heap[left].0 < heap[best].0 {
             best = left;
         }
-        if right < n && heap[right].0 > heap[best].0 {
+        if right < n && heap[right].0 < heap[best].0 {
             best = right;
         }
         if best == i {

@@ -390,6 +390,34 @@ fn peaks_pits_adds_two_layers() {
 }
 
 #[test]
+fn basins_labels_the_plane() {
+    let dir = std::env::temp_dir().join(format!("isoliner-basins-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("slope.tif");
+    let mut z = vec![0.0f32; 36];
+    for r in 0..6 {
+        for c in 0..6 {
+            z[r * 6 + c] = 10.0 - (r as f32 + c as f32);
+        }
+    }
+    write_grid(&src, &z, 6, 6, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::basins(
+        &mut host,
+        &json!({"input": "dem", "threshold": 1.0, "fill": true}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert!(g.z.iter().all(|&v| v == 1.0), "labels: {:?}", g.z);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Basins: 1"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(
