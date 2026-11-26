@@ -47,7 +47,10 @@ pub mod tab {
             Group {
                 label: l("2. Topography", "2. Топография"),
                 layout: Layout::Large,
-                items: &[Item::Command("slope-aspect")],
+                items: &[
+                    Item::Command("slope-aspect"),
+                    Item::Command("fill-depressions"),
+                ],
             },
             Group {
                 label: l("4. Additional analysis", "4. Анализ"),
@@ -162,6 +165,12 @@ impl Product for Isoliner {
             "flow-gradient" => match crate::raster_cmd::flow_gradient(host, &req["params"], lang) {
                 Ok(v) => json!({"ok": v}),
                 Err(e) => json!({"error": e}),
+            }
+            "fill-depressions" => {
+                match crate::raster_cmd::fill_depressions(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
             }
             "subsidence-tilt-curvature" => {
                 match crate::raster_cmd::subsidence_tilt_curvature(host, &req["params"], lang) {

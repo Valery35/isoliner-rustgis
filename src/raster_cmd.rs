@@ -1359,6 +1359,80 @@ pub fn subsidence_horizontal(host: &mut dyn Call, params: &J, lang: Lang) -> Res
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.04 Заполнение понижений: команда `fill-depressions`.
+pub fn fill_depressions(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбран растр рельефа.",
+                "No elevation raster is chosen.",
+            )
+            .to_string()
+        })?;
+    let dir = run_dir("fill-depressions")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    let before = z.clone();
+    crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    let mut n_raised = 0usize;
+    let mut max_raise = 0.0f64;
+    let mut sum_raise = 0.0f64;
+    for (a, b) in before.iter().zip(&z) {
+        if a.is_finite() && b.is_finite() && *b > *a {
+            n_raised += 1;
+            let d = *b - *a;
+            max_raise = max_raise.max(d);
+            sum_raise += d;
+        }
+    }
+    let out: Vec<f32> = z
+        .iter()
+        .map(|&v| if v.is_finite() { v as f32 } else { NODATA as f32 })
+        .collect();
+    let path = dir.join(format!(
+        "{}.tif",
+        t(lang, "Заполненные понижения", "Filled depressions")
+    ));
+    geotiff::write_like(&path, &g, &out, NODATA)?;
+    add_raster(host, &path)?;
+    let mut lines = Vec::new();
+    if n_raised == 0 {
+        lines.push(
+            t(
+                lang,
+                "Понижений нет: растр остался прежним.",
+                "No depressions: the raster is unchanged.",
+            )
+            .to_string(),
+        );
+    } else {
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Заполнено понижений: %d ячеек.",
+                "Depressions filled: %d cells.",
+            ),
+            &[Arg::from(n_raised as f64)],
+        ));
+        lines.push(pyfmt::format(
+            t(
+                lang,
+                "Максимальный подъём: %.4g, средний: %.4g.",
+                "Maximum raise: %.4g, mean: %.4g.",
+            ),
+            &[
+                Arg::from(max_raise),
+                Arg::from(sum_raise / n_raised as f64),
+            ],
+        ));
+    }
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

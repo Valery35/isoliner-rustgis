@@ -261,6 +261,35 @@ fn flow_gradient_adds_two_rasters() {
 }
 
 #[test]
+fn fill_depressions_raises_the_pit() {
+    let dir = std::env::temp_dir().join(format!("isoliner-fill-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("pit.tif");
+    // 5x5: border 10, interior 12, one pit in the centre.
+    let mut z = vec![12.0f32; 25];
+    for i in 0..5 {
+        z[i] = 10.0;
+        z[20 + i] = 10.0;
+        z[i * 5] = 10.0;
+        z[i * 5 + 4] = 10.0;
+    }
+    z[12] = 0.0;
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out =
+        raster_cmd::fill_depressions(&mut host, &json!({"input": "dem"}), Lang::En).unwrap();
+    assert_eq!(host.exported, ["dem"]);
+    assert_eq!(host.added.len(), 1);
+    let g = geotiff::read(&host.added[0]).unwrap();
+    assert!((g.z[12] - 12.0).abs() < 1e-6, "pit = {}", g.z[12]);
+    assert!((g.z[0] - 10.0).abs() < 1e-6, "border = {}", g.z[0]);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Depressions filled: 1"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(
