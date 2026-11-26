@@ -9,7 +9,7 @@
 use rustgis_kit::catalog::Tool;
 use rustgis_kit::runner::no_command;
 use rustgis_kit::{Call, Catalog, Failure, Lang, Options, Product, Store};
-use serde_json::{Value as J, json};
+use serde_json::{Map, Value as J, json};
 
 use crate::report::{Report, render};
 use crate::tools;
@@ -25,147 +25,6 @@ pub const OPTIONS: Options = Options {
     offered: tools::OFFERED,
     xy_tables: &[],
 };
-
-/// Своя вкладка ленты: группы по номерам модуля, инструменты в меню со
-/// значками RustGIS (у инструмента своего значка нет, на ленте он был бы
-/// сундуком).
-pub mod tab {
-    use rustgis_kit::manifest::{Group, Item, Label, Layout, Menu, Tab};
-
-    const fn l(en: &'static str, ru: &'static str) -> Label {
-        Label { en, ru }
-    }
-
-    const fn menu(label: Label, icon: &'static str, help: Label, items: &'static [Item]) -> Menu {
-        Menu {
-            label,
-            icon: Some(icon),
-            help: Some(help),
-            layout: None,
-            items,
-        }
-    }
-
-    static VARIOGRAMS: Menu = menu(
-        l("Variograms", "Вариограммы"),
-        "chart",
-        l(
-            "Declustering weights, the experimental variogram and cross-validation of the variogram and of the method.",
-            "Веса декластеризации, экспериментальная вариограмма и кросс-валидация вариограммы и метода.",
-        ),
-        &[
-            Item::Tool("declustering"),
-            Item::Tool("experimental_variogram"),
-            Item::Tool("crossvalidation"),
-            Item::Tool("method_crossvalidation"),
-        ],
-    );
-    static GRID_EXAMPLES: Menu = menu(
-        l("Examples", "Примеры"),
-        "point_layer",
-        l(
-            "Example data for the tools.",
-            "Примеры данных для инструментов.",
-        ),
-        &[Item::Tool("examplewells"), Item::Tool("geophysprofiles")],
-    );
-    static CONTOURS: Menu = menu(
-        l("Contours", "Горизонтали"),
-        "relief",
-        l(
-            "Contour lines for building and checking a terrain model.",
-            "Горизонтали для построения и проверки модели рельефа.",
-        ),
-        &[Item::Tool("contoursplit")],
-    );
-    static DENSITY: Menu = menu(
-        l("Density", "Плотность"),
-        "point_layer",
-        l(
-            "Example data for the density of measurements.",
-            "Пример данных для плотности по замерам.",
-        ),
-        &[Item::Tool("densitydemo")],
-    );
-    static DRILLHOLES: Menu = menu(
-        l("Drillholes", "Скважины"),
-        "table",
-        l(
-            "Drillhole data and the bed reference.",
-            "Данные бурения и справочник пластов.",
-        ),
-        &[
-            Item::Tool("bed_grades_at_collars"),
-            Item::Tool("plast_reference_template"),
-        ],
-    );
-    static DIMENSION: Menu = menu(
-        l("Dimension", "Размерность"),
-        "measure",
-        l(
-            "Fractal dimension of lines and boundaries and example data.",
-            "Фрактальная размерность линий и границ и пример данных.",
-        ),
-        &[
-            Item::Tool("line_dimension"),
-            Item::Tool("minkowski_dimension"),
-            Item::Tool("fractal_demo"),
-        ],
-    );
-
-    pub static TAB: Tab = Tab {
-        label: l("Isoliner", "Isoliner"),
-        groups: &[
-            Group {
-                label: l("1. Grid and isolines", "1. Грид и изолинии"),
-                layout: Layout::Large,
-                items: &[
-                    Item::Command("kriging-2d"),
-                    Item::Command("minimum-curvature"),
-                    Item::Menu(&VARIOGRAMS),
-                    Item::Menu(&GRID_EXAMPLES),
-                ],
-            },
-            Group {
-                label: l("2. Topography", "2. Топография"),
-                layout: Layout::Large,
-                items: &[Item::Command("slope-aspect"), Item::Menu(&CONTOURS)],
-            },
-            Group {
-                label: l("4. Additional analysis tools", "4. Дополнительные инструменты анализа"),
-                layout: Layout::Large,
-                items: &[
-                    Item::Command("probability-threshold"),
-                    Item::Command("flow-gradient"),
-                    Item::Menu(&DENSITY),
-                ],
-            },
-            Group {
-                label: l("5. Section", "5. Разрез"),
-                layout: Layout::Large,
-                items: &[Item::Menu(&DRILLHOLES)],
-            },
-            Group {
-                label: l("8. Fractal analysis", "8. Фрактальный анализ"),
-                layout: Layout::Large,
-                items: &[Item::Menu(&DIMENSION)],
-            },
-            Group {
-                label: l("10. Subsidence", "10. Сдвигения"),
-                layout: Layout::Large,
-                items: &[
-                    Item::Command("subsidence-tilt-curvature"),
-                    Item::Command("subsidence-horizontal"),
-                ],
-            },
-            Group {
-                label: l("Help", "Справка"),
-                layout: Layout::Large,
-                items: &[Item::Command("about")],
-            },
-        ],
-    };
-}
 
 /// Папка данных расширения во временной папке системы.
 pub fn home() -> std::path::PathBuf {
@@ -302,11 +161,10 @@ fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
     })
 }
 
-/// `plugin.json` с разделами `tools` и `tab` и переводами их строк.
-pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
-    let (mut tools, mut ru) = rustgis_kit::manifest::tools_section(catalog, &OPTIONS);
-    // Коды инструментов из tools.json нужны для группировки в панели Инструментов.
-    let tools_json: J = serde_json::from_str(TOOLS_JSON).map_err(|e| e.to_string())?;
+/// Раскладывает инструменты по подгруппам QGIS (`toolbox`) и добавляет
+/// переводы названий групп в `i18n`.
+pub fn apply_toolbox_groups(tools: &mut [J], ru: &mut Map<String, J>) {
+    let tools_json: J = serde_json::from_str(TOOLS_JSON).expect("tools.json is valid");
     let mut code_by_id = std::collections::HashMap::new();
     if let Some(arr) = tools_json["tools"].as_array() {
         for t in arr {
@@ -317,7 +175,7 @@ pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
             }
         }
     }
-    for tool in &mut tools {
+    for tool in tools {
         if let Some(id) = tool.get("id").and_then(|v| v.as_str()) {
             if let Some(&code) = code_by_id.get(id) {
                 if let Some((en, rus)) = qgis_group(code) {
@@ -327,18 +185,11 @@ pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
             }
         }
     }
-    // Вкладка ленты собирается из product::tab::TAB.
-    let base_val: J = serde_json::from_str(base).map_err(|e| e.to_string())?;
-    let empty = Vec::new();
-    let commands: Vec<&str> = base_val["commands"]
-        .as_array()
-        .unwrap_or(&empty)
-        .iter()
-        .map(|c| c["id"].as_str().unwrap_or(""))
-        .collect();
-    let (tab, tab_ru) =
-        rustgis_kit::manifest::tab_section(&tab::TAB, catalog, &OPTIONS, &commands)
-            .map_err(|e| e.to_string())?;
-    ru.extend(tab_ru);
-    rustgis_kit::manifest::splice_all(base, &tools, Some(&tab), &ru)
+}
+
+/// `plugin.json` с разделом `tools` и переводами его строк.
+pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
+    let (mut tools, mut ru) = rustgis_kit::manifest::tools_section(catalog, &OPTIONS);
+    apply_toolbox_groups(&mut tools, &mut ru);
+    rustgis_kit::manifest::splice(base, &tools, &ru)
 }
