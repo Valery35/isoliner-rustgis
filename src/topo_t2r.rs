@@ -374,6 +374,7 @@ fn profile_ring_from_points(
     Some((out, selected.len()))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn interp_ring_surface(
     rings: &[Vec<(f64, f64)>],
     ring_z: &[Vec<f64>],
@@ -490,6 +491,7 @@ fn mask_edge(m: &[bool], rows: usize, cols: usize) -> Vec<bool> {
 // Сглаживание
 // -----------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 fn relax(
     z: &[f64],
     pin_mask: &[bool],
@@ -750,6 +752,7 @@ fn stream_bounds(
     (cap, floor)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn polish(
     z: &[f64],
     pin_mask: &[bool],
@@ -949,6 +952,7 @@ fn upsample(
 // Основной вход
 // -----------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 pub fn topo2raster(
     points: &[(f64, f64, f64, f64)],
     streams: &[Vec<(f64, f64)>],
