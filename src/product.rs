@@ -26,6 +26,51 @@ pub const OPTIONS: Options = Options {
     xy_tables: &[],
 };
 
+/// Своя вкладка ленты Isoliner: только растровые команды, сгруппированные
+/// по номерам разделов модуля QGIS. Инструменты остаются в панели
+/// Инструментов, чтобы не дублировать их на ленте.
+pub mod tab {
+    use rustgis_kit::manifest::{Group, Item, Label, Layout, Tab};
+
+    const fn l(en: &'static str, ru: &'static str) -> Label {
+        Label { en, ru }
+    }
+
+    pub static TAB: Tab = Tab {
+        label: l("Isoliner", "Isoliner"),
+        groups: &[
+            Group {
+                label: l("1. Grid and isolines", "1. Грид и изолинии"),
+                layout: Layout::Large,
+                items: &[Item::Command("kriging-2d"), Item::Command("minimum-curvature")],
+            },
+            Group {
+                label: l("2. Topography", "2. Топография"),
+                layout: Layout::Large,
+                items: &[Item::Command("slope-aspect")],
+            },
+            Group {
+                label: l("4. Additional analysis", "4. Анализ"),
+                layout: Layout::Large,
+                items: &[Item::Command("probability-threshold"), Item::Command("flow-gradient")],
+            },
+            Group {
+                label: l("10. Subsidence", "10. Сдвигения"),
+                layout: Layout::Large,
+                items: &[
+                    Item::Command("subsidence-tilt-curvature"),
+                    Item::Command("subsidence-horizontal"),
+                ],
+            },
+            Group {
+                label: l("Help", "Справка"),
+                layout: Layout::Large,
+                items: &[Item::Command("about")],
+            },
+        ],
+    };
+}
+
 /// Папка данных расширения во временной папке системы.
 pub fn home() -> std::path::PathBuf {
     rustgis_kit::store::temp_home("isoliner")
@@ -162,8 +207,10 @@ fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
 }
 
 /// Раскладывает инструменты по подгруппам QGIS (`toolbox`) и добавляет
-/// переводы названий групп в `i18n`.
-pub fn apply_toolbox_groups(tools: &mut [J], ru: &mut Map<String, J>) {
+/// переводы названий групп в `i18n`. Затем сортирует инструменты по
+/// группе: RustGIS в панели Инструментов склеивает только соседние
+/// одинаковые toolbox, поэтому иначе одна группа повторяется несколько раз.
+pub fn apply_toolbox_groups(tools: &mut Vec<J>, ru: &mut Map<String, J>) {
     let tools_json: J = serde_json::from_str(TOOLS_JSON).expect("tools.json is valid");
     let mut code_by_id = std::collections::HashMap::new();
     if let Some(arr) = tools_json["tools"].as_array() {
@@ -175,7 +222,7 @@ pub fn apply_toolbox_groups(tools: &mut [J], ru: &mut Map<String, J>) {
             }
         }
     }
-    for tool in tools {
+    for tool in tools.iter_mut() {
         if let Some(id) = tool.get("id").and_then(|v| v.as_str()) {
             if let Some(&code) = code_by_id.get(id) {
                 if let Some((en, rus)) = qgis_group(code) {
@@ -185,11 +232,29 @@ pub fn apply_toolbox_groups(tools: &mut [J], ru: &mut Map<String, J>) {
             }
         }
     }
+    // Устойчивая сортировка: инструменты одной группы идут подряд и в
+    // порядке кода, группы - в порядке QGIS (числовой префикс).
+    tools.sort_by(|a, b| {
+        let key = |t: &J| t.get("toolbox").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        key(a).cmp(&key(b))
+    });
 }
 
-/// `plugin.json` с разделом `tools` и переводами его строк.
+/// `plugin.json` с разделами `tools` и `tab` и переводами их строк.
 pub fn manifest(catalog: &Catalog, base: &str) -> Result<String, String> {
     let (mut tools, mut ru) = rustgis_kit::manifest::tools_section(catalog, &OPTIONS);
     apply_toolbox_groups(&mut tools, &mut ru);
-    rustgis_kit::manifest::splice(base, &tools, &ru)
+    let base_val: J = serde_json::from_str(base).map_err(|e| e.to_string())?;
+    let empty = Vec::new();
+    let commands: Vec<&str> = base_val["commands"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .map(|c| c["id"].as_str().unwrap_or(""))
+        .collect();
+    let (tab, tab_ru) =
+        rustgis_kit::manifest::tab_section(&tab::TAB, catalog, &OPTIONS, &commands)
+            .map_err(|e| e.to_string())?;
+    ru.extend(tab_ru);
+    rustgis_kit::manifest::splice_all(base, &tools, Some(&tab), &ru)
 }
