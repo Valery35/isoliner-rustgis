@@ -94,10 +94,10 @@ pub fn flow_accumulation(
     let mut indeg: Vec<usize> = deps.iter().map(|d| d.len()).collect();
     let mut queue: Vec<usize> = (0..n).filter(|&k| indeg[k] == 0).collect();
     let mut visited = vec![false; n];
-    let mut total = vec![0.0f64; n];
-    for &k in &queue {
-        total[k] = acc[k];
-    }
+    // total[k] - аккумуляция ячейки: её собственный вес плюс всё, что
+    // притекло сверху. Инициализируется для всех ячеек, а не только для
+    // истоков: иначе у ячейки, ставшей истоком позже, аккумуляция терялась.
+    let mut total: Vec<f64> = acc.clone();
     let mut qi = 0;
     while qi < queue.len() {
         let k = queue[qi];
@@ -119,21 +119,19 @@ pub fn flow_accumulation(
             continue;
         }
         let nk = nr as usize * cols + nc as usize;
-        acc[nk] += total[k];
+        total[nk] += total[k];
         indeg[nk] -= 1;
         if indeg[nk] == 0 {
             queue.push(nk);
         }
     }
-    // Ячейки в циклах (не должно быть после заполнения понижений) — NaN.
+    // Ячейки в циклах (не должно быть после заполнения понижений) — nodata.
     for k in 0..n {
         if !visited[k] {
-            acc[k] = nodata;
-        } else {
-            acc[k] = total[k];
+            total[k] = nodata;
         }
     }
-    acc
+    total
 }
 
 /// Речная сеть: ячейки с аккумуляцией >= threshold.

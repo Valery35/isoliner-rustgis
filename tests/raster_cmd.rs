@@ -290,6 +290,43 @@ fn fill_depressions_raises_the_pit() {
 }
 
 #[test]
+fn flow_d8_drains_a_bowl() {
+    let dir = std::env::temp_dir().join(format!("isoliner-d8-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("bowl.tif");
+    // 5x5: border 10, inner ring 5, centre 0 - everything flows to the centre.
+    let mut z = vec![10.0f32; 25];
+    for r in 1..4 {
+        for c in 1..4 {
+            z[r * 5 + c] = 5.0;
+        }
+    }
+    z[12] = 0.0;
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::flow_d8(
+        &mut host,
+        &json!({"input": "dem", "fill": false}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.exported, ["dem"]);
+    assert_eq!(host.added.len(), 2);
+    let d = geotiff::read(&host.added[0]).unwrap();
+    let acc = geotiff::read(&host.added[1]).unwrap();
+    // The centre has no lower neighbour: no flow, and every cell drains into it.
+    assert_eq!(d.z[12], 0.0);
+    assert!((acc.z[12] - 25.0).abs() < 1e-6, "acc = {}", acc.z[12]);
+    // A border cell drains inward to the ring.
+    assert_ne!(d.z[0], 0.0);
+    assert_ne!(d.z[0], 255.0);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Maximum accumulation"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn subsidence_tilt_curvature_adds_five_rasters() {
     let mut host = Fake::default();
     let out = raster_cmd::subsidence_tilt_curvature(

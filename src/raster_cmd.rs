@@ -1433,6 +1433,75 @@ pub fn fill_depressions(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.05 Сток и аккумуляция D8: команда `flow-d8`.
+pub fn flow_d8(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбрана входная ЦМР.",
+                "No input DEM is chosen.",
+            )
+            .to_string()
+        })?;
+    let fill = params["fill"].as_bool().unwrap_or(true);
+    let dir = run_dir("flow-d8")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    if fill {
+        crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    }
+    let d = crate::topo_flow::d8_flow(&z, g.height, g.width, nodata);
+    let acc = crate::topo_flow::flow_accumulation(&d, None, g.height, g.width, nodata);
+    // D8 index -> ArcGIS code: E=1, SE=2, S=4, SW=8, W=16, NW=32, N=64, NE=128.
+    let code = |i: i32| -> f32 {
+        match i {
+            0 => 128.0,
+            1 => 1.0,
+            2 => 2.0,
+            3 => 4.0,
+            4 => 8.0,
+            5 => 16.0,
+            6 => 32.0,
+            7 => 64.0,
+            _ => 0.0,
+        }
+    };
+    let mut d32: Vec<f32> = d.iter().map(|&i| code(i)).collect();
+    let mut acc32: Vec<f32> = acc.iter().map(|&a| a as f32).collect();
+    for (i, &m) in g.mask.iter().enumerate() {
+        if m {
+            d32[i] = 255.0;
+            acc32[i] = -1.0;
+        }
+    }
+    let p_dir = dir.join(format!(
+        "{}.tif",
+        t(lang, "Направления стока", "Flow directions")
+    ));
+    let p_acc = dir.join(format!(
+        "{}.tif",
+        t(lang, "Аккумуляция", "Flow accumulation")
+    ));
+    geotiff::write_like(&p_dir, &g, &d32, 255.0)?;
+    geotiff::write_like(&p_acc, &g, &acc32, -1.0)?;
+    add_raster(host, &p_dir)?;
+    add_raster(host, &p_acc)?;
+    let max_acc = acc.iter().cloned().fold(0.0f64, f64::max);
+    let lines = vec![pyfmt::format(
+        t(
+            lang,
+            "Максимальная аккумуляция: %d ячеек.",
+            "Maximum accumulation: %d cells.",
+        ),
+        &[Arg::from(max_acc.round())],
+    )];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

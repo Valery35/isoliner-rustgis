@@ -50,6 +50,7 @@ pub mod tab {
                 items: &[
                     Item::Command("slope-aspect"),
                     Item::Command("fill-depressions"),
+                    Item::Command("flow-d8"),
                 ],
             },
             Group {
@@ -172,6 +173,10 @@ impl Product for Isoliner {
                     Err(e) => json!({"error": e}),
                 }
             }
+            "flow-d8" => match crate::raster_cmd::flow_d8(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
             "subsidence-tilt-curvature" => {
                 match crate::raster_cmd::subsidence_tilt_curvature(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
