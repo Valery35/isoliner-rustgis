@@ -1,9 +1,9 @@
-# Isoliner for RustGIS - plugin packaging.
+﻿# Isoliner for RustGIS - plugin packaging.
 # Copyright (C) 2026 Inform++ LLC. License Apache 2.0.
 # SPDX-License-Identifier: Apache-2.0
 
 param(
-    [string]$OutDir = "$env:USERPROFILE\Dropbox\Release\Isoliner"
+    [string]$OutDir = "$env:USERPROFILE\Dropbox\ИИ\Isoliner"
 )
 
 $env:PATH += ";$env:USERPROFILE\.cargo\bin"
@@ -24,7 +24,7 @@ Copy-Item $target "$pluginDir\bin\isoliner-rustgis.exe"
 & "$target" manifest > "$pluginDir\plugin.json"
 if ($LASTEXITCODE -ne 0) { throw "manifest generation failed" }
 
-$zipName = "isoliner-rustgis-${version}"
+$zipName = "isoliner-${version}"
 $zipPath = "$OutDir\${zipName}.rgplugin"
 $zipTemp = "$OutDir\${zipName}.zip"
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
