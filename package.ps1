@@ -21,9 +21,11 @@ Remove-Item -Recurse -Force $pluginDir -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$pluginDir\bin" | Out-Null
 Copy-Item $target "$pluginDir\bin\isoliner-rustgis.exe"
 
-# Generate plugin.json with the tools section (UTF-8, not PowerShell's default UTF-16 LE).
-& "$target" manifest | Out-File -FilePath "$pluginDir\plugin.json" -Encoding UTF8
+# Generate plugin.json with the tools section (UTF-8 without BOM).
+$output = & "$target" manifest
 if ($LASTEXITCODE -ne 0) { throw "manifest generation failed" }
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText("$pluginDir\plugin.json", $output, $utf8NoBom)
 
 $zipName = "isoliner-${version}"
 $zipPath = "$OutDir\${zipName}.rgplugin"
