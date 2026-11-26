@@ -28,78 +28,127 @@ pub const OPTIONS: Options = Options {
 
 /// Своя вкладка ленты Isoliner: только растровые команды, сгруппированные
 /// по номерам разделов модуля QGIS. Инструменты остаются в панели
-/// Инструментов, чтобы не дублировать их на ленте.
+/// Инструментов, чтобы не дублировать их на ленте. Каждая группа - один
+/// выпадающий список, чтобы не занимать ленту десятками значков.
 pub mod tab {
-    use rustgis_kit::manifest::{Group, Item, Label, Layout, Tab};
+    use rustgis_kit::manifest::{Group, Item, Label, Layout, Menu, Tab};
 
     const fn l(en: &'static str, ru: &'static str) -> Label {
         Label { en, ru }
     }
 
+    static GRID: Menu = Menu {
+        label: l("Grid and isolines", "Грид и изолинии"),
+        icon: Some("catalog"),
+        help: Some(l("Grids, kriging and isolines", "Гриды, кригинг и изолинии")),
+        layout: None,
+        items: &[
+            Item::Command("kriging-2d"),
+            Item::Command("minimum-curvature"),
+            Item::Command("mba-grid"),
+            Item::Command("raster-to-isolines"),
+            Item::Command("variogram-map"),
+        ],
+    };
+
+    static TERRAIN: Menu = Menu {
+        label: l("Terrain", "Рельеф"),
+        icon: Some("relief"),
+        help: Some(l("Relief from a DEM and contours", "Рельеф по ЦМР и горизонталям")),
+        layout: None,
+        items: &[
+            Item::Command("topo2raster"),
+            Item::Command("slope-aspect"),
+            Item::Command("fill-depressions"),
+            Item::Command("flow-d8"),
+            Item::Command("basins"),
+            Item::Command("topo-demo-pit"),
+            Item::Command("cut-fill"),
+        ],
+    };
+
+    static HYDRO: Menu = Menu {
+        label: l("Hydrology", "Гидрология"),
+        icon: Some("chart"),
+        help: Some(l("Flow, networks and catchments", "Сток, сети и водосборы")),
+        layout: None,
+        items: &[
+            Item::Command("river-network"),
+            Item::Command("peaks-pits"),
+            Item::Command("gauge-report"),
+            Item::Command("ditch-catchment"),
+            Item::Command("catchment-stats"),
+            Item::Command("downhill-trace"),
+        ],
+    };
+
+    static PREP: Menu = Menu {
+        label: l("Preparation and checks", "Подготовка и проверка"),
+        icon: Some("table"),
+        help: Some(l("DEM cleanup, contours and breaklines", "Чистка ЦМР, горизонтали и бровки")),
+        layout: None,
+        items: &[
+            Item::Command("bridge-removal"),
+            Item::Command("snap-elevations"),
+            Item::Command("terrace-smooth"),
+            Item::Command("contour-residual"),
+            Item::Command("terracing-check"),
+            Item::Command("breakline-candidates"),
+            Item::Command("breakline-pairs"),
+        ],
+    };
+
+    static EXTRA: Menu = Menu {
+        label: l("Additional analysis", "Дополнительные"),
+        icon: Some("chart"),
+        help: Some(l("Probability and gradient", "Вероятность и градиент")),
+        layout: None,
+        items: &[Item::Command("probability-threshold"), Item::Command("flow-gradient")],
+    };
+
+    static SUBS: Menu = Menu {
+        label: l("Subsidence", "Оседания"),
+        icon: Some("measure"),
+        help: Some(l("Tilt, curvature and strain", "Наклоны, кривизна и деформации")),
+        layout: None,
+        items: &[
+            Item::Command("subsidence-tilt-curvature"),
+            Item::Command("subsidence-horizontal"),
+        ],
+    };
+
     pub static TAB: Tab = Tab {
         label: l("Isoliner", "Isoliner"),
         groups: &[
             Group {
-                label: l("1. Grid and isolines", "1. Грид и изолинии"),
+                label: l("1. Grid", "1. Грид"),
                 layout: Layout::Large,
-                items: &[
-                    Item::Command("kriging-2d"),
-                    Item::Command("minimum-curvature"),
-                    Item::Command("mba-grid"),
-                    Item::Command("raster-to-isolines"),
-                    Item::Command("variogram-map"),
-                ],
+                items: &[Item::Menu(&GRID)],
             },
             Group {
                 label: l("2. Terrain", "2. Рельеф"),
                 layout: Layout::Large,
-                items: &[
-                    Item::Command("topo2raster"),
-                    Item::Command("slope-aspect"),
-                    Item::Command("fill-depressions"),
-                    Item::Command("flow-d8"),
-                    Item::Command("basins"),
-                    Item::Command("topo-demo-pit"),
-                    Item::Command("cut-fill"),
-                ],
+                items: &[Item::Menu(&TERRAIN)],
             },
             Group {
                 label: l("2. Hydrology", "2. Гидрология"),
                 layout: Layout::Large,
-                items: &[
-                    Item::Command("river-network"),
-                    Item::Command("peaks-pits"),
-                    Item::Command("gauge-report"),
-                    Item::Command("ditch-catchment"),
-                    Item::Command("catchment-stats"),
-                    Item::Command("downhill-trace"),
-                ],
+                items: &[Item::Menu(&HYDRO)],
             },
             Group {
-                label: l("2. Preparation and checks", "2. Подготовка и проверка"),
+                label: l("2. Preparation", "2. Подготовка"),
                 layout: Layout::Large,
-                items: &[
-                    Item::Command("bridge-removal"),
-                    Item::Command("snap-elevations"),
-                    Item::Command("terrace-smooth"),
-                    Item::Command("contour-residual"),
-                    Item::Command("terracing-check"),
-                    Item::Command("breakline-candidates"),
-                    Item::Command("breakline-pairs"),
-                ],
+                items: &[Item::Menu(&PREP)],
             },
             Group {
-                label: l("3. Additional analysis", "3. Дополнительные"),
+                label: l("3. Additional", "3. Дополнительно"),
                 layout: Layout::Large,
-                items: &[Item::Command("probability-threshold"), Item::Command("flow-gradient")],
+                items: &[Item::Menu(&EXTRA)],
             },
             Group {
                 label: l("9. Subsidence", "9. Оседания"),
                 layout: Layout::Large,
-                items: &[
-                    Item::Command("subsidence-tilt-curvature"),
-                    Item::Command("subsidence-horizontal"),
-                ],
+                items: &[Item::Menu(&SUBS)],
             },
             Group {
                 label: l("Help", "Справка"),
