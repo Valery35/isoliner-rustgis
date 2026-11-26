@@ -2640,6 +2640,192 @@ pub fn catchment_stats(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.20 Бровки и подошвы в работу: команда `breakline-pairs`.
+/// Пары собираются спуском по D8 от пробных вершин бровки до подошвы.
+pub fn breakline_pairs(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран слой кандидатов.", "No candidate layer is chosen.").to_string())?;
+    let dem = params["dem"].as_str().filter(|s| !s.is_empty());
+    let kind_field = params["kind_field"].as_str().filter(|s| !s.is_empty()).unwrap_or("kind");
+    let max_dist = params["max_dist"].as_f64().unwrap_or(50.0).max(1.0);
+    let min_share = params["min_share"].as_f64().unwrap_or(0.4).clamp(0.1, 1.0);
+    let dir = run_dir("breakline-pairs")?;
+    let g = match dem {
+        Some(d) => Some(export_raster(host, d, &dir)?),
+        None => None,
+    };
+    let d8 = g.as_ref().map(|gr| {
+        let nodata = gr.nodata.unwrap_or(f64::NAN);
+        crate::topo_flow::d8_flow(&gr.z, gr.height, gr.width, nodata)
+    });
+    let fc = host.call("host.features", json!({"layer": layer, "crs": "layer"}))?;
+    let (x0, y0) = g.as_ref().map(|gr| gr.origin()).unwrap_or((0.0, 0.0));
+    let (cx, cy) = g.as_ref().map(|gr| gr.cell).unwrap_or((1.0, 1.0));
+    let to_cell = |x: f64, y: f64| -> Option<(usize, usize)> {
+        let gr = g.as_ref()?;
+        let c = ((x - x0) / cx).floor() as isize;
+        let r = ((y0 - y) / cy).floor() as isize;
+        if r >= 0 && r < gr.height as isize && c >= 0 && c < gr.width as isize {
+            Some((r as usize, c as usize))
+        } else {
+            None
+        }
+    };
+    struct Line {
+        parts: Vec<Vec<(f64, f64)>>,
+        brow: bool,
+    }
+    let mut lines: Vec<Line> = Vec::new();
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let kind = f["properties"][kind_field]
+            .as_str()
+            .unwrap_or("")
+            .to_lowercase();
+        let brow = kind.contains("brow") || kind.contains("бров");
+        let toe = kind.contains("toe") || kind.contains("sole") || kind.contains("подош");
+        if !brow && !toe {
+            continue;
+        }
+        let parts = line_parts(&f["geometry"]);
+        if parts.is_empty() {
+            continue;
+        }
+        lines.push(Line { parts, brow });
+    }
+    // Ячейки подошв: ячейка -> номера линий.
+    let mut toe_cells: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+    for (li, l) in lines.iter().enumerate() {
+        if l.brow {
+            continue;
+        }
+        for part in &l.parts {
+            for w in part.windows(2) {
+                let steps = 4;
+                for s in 0..=steps {
+                    let t = s as f64 / steps as f64;
+                    let x = w[0].0 + (w[1].0 - w[0].0) * t;
+                    let y = w[0].1 + (w[1].1 - w[0].1) * t;
+                    if let Some((r, c)) = to_cell(x, y) {
+                        if let Some(gr) = &g {
+                            toe_cells.entry(r * gr.width + c).or_default().push(li);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    const OFF: [(isize, isize); 8] = [(-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0)];
+    let mut pair_of: Vec<Option<usize>> = vec![None; lines.len()];
+    let mut paired_toes: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    for (bi, l) in lines.iter().enumerate() {
+        if !l.brow {
+            continue;
+        }
+        let Some(gr) = &g else { continue };
+        let Some(d) = &d8 else { continue };
+        let mut votes: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut total = 0usize;
+        for part in &l.parts {
+            for w in part.windows(2) {
+                let steps = 3;
+                for s in 0..=steps {
+                    let t = s as f64 / steps as f64;
+                    let x = w[0].0 + (w[1].0 - w[0].0) * t;
+                    let y = w[0].1 + (w[1].1 - w[0].1) * t;
+                    let Some((mut r, mut c)) = to_cell(x, y) else { continue };
+                    let max_cells = (max_dist / cx.max(cy)).ceil() as usize;
+                    let mut hit = None;
+                    for _ in 0..max_cells {
+                        if let Some(ids) = toe_cells.get(&(r * gr.width + c)) {
+                            if let Some(&id) = ids.iter().find(|&&id| id != bi) {
+                                hit = Some(id);
+                                break;
+                            }
+                        }
+                        let dir = d[r * gr.width + c];
+                        if dir < 0 {
+                            break;
+                        }
+                        let (dr, dc) = OFF[dir as usize];
+                        let nr = r as isize + dr;
+                        let nc = c as isize + dc;
+                        if nr < 0 || nr >= gr.height as isize || nc < 0 || nc >= gr.width as isize {
+                            break;
+                        }
+                        r = nr as usize;
+                        c = nc as usize;
+                    }
+                    total += 1;
+                    if let Some(id) = hit {
+                        *votes.entry(id).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+        if total == 0 {
+            continue;
+        }
+        if let Some((&toe, &n)) = votes.iter().max_by_key(|&(_, &n)| n) {
+            if n as f64 / total as f64 >= min_share {
+                pair_of[bi] = Some(toe);
+                paired_toes.insert(toe);
+            }
+        }
+    }
+    let mut top = Vec::new();
+    let mut bottom = Vec::new();
+    let mut orphans = Vec::new();
+    let mut links = 0i64;
+    for (li, l) in lines.iter().enumerate() {
+        let coords: Vec<J> = l
+            .parts
+            .iter()
+            .map(|p| json!(p.iter().map(|&(x, y)| json!([x, y])).collect::<Vec<_>>()))
+            .collect();
+        let geom = if coords.len() == 1 {
+            json!({"type": "LineString", "coordinates": coords[0]})
+        } else {
+            json!({"type": "MultiLineString", "coordinates": coords})
+        };
+        let link = pair_of[li]
+            .map(|t| (t + 1) as i64)
+            .unwrap_or(-1);
+        let feat = json!({
+            "type": "Feature",
+            "geometry": geom,
+            "properties": {"kind": if l.brow { "brow" } else { "toe" }, "link": link}
+        });
+        if l.brow {
+            if pair_of[li].is_some() {
+                links += 1;
+                top.push(feat);
+            } else {
+                orphans.push(feat);
+            }
+        } else {
+            if paired_toes.contains(&li) {
+                bottom.push(feat);
+            } else {
+                orphans.push(feat);
+            }
+        }
+    }
+    let n_top = top.len();
+    let n_bottom = bottom.len();
+    host.call("host.addLayer", json!({"name": t(lang, "Верх (бровки)", "Top (brows)"), "geojson": {"type": "FeatureCollection", "features": top}}))?;
+    host.call("host.addLayer", json!({"name": t(lang, "Низ (подошвы)", "Bottom (toes)"), "geojson": {"type": "FeatureCollection", "features": bottom}}))?;
+    if !orphans.is_empty() {
+        host.call("host.addLayer", json!({"name": t(lang, "Непарные линии", "Orphan lines"), "geojson": {"type": "FeatureCollection", "features": orphans}}))?;
+    }
+    let lines_report = vec![
+        pyfmt::format(t(lang, "Пар: %d, бровок: %d, подошв: %d.", "Pairs: %d, brows: %d, toes: %d."), &[Arg::from(links as f64), Arg::from(n_top as f64), Arg::from(n_bottom as f64)]),
+        pyfmt::format(t(lang, "Непарных: %d.", "Orphans: %d."), &[Arg::from(orphans.len() as f64)]),
+    ];
+    Ok(json!({"report": lines_report.join("\n"), "messages": lines_report}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

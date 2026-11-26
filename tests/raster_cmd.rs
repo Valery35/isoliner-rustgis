@@ -78,6 +78,13 @@ impl Call for Fake {
                             "properties": {}
                         }]
                     })),
+                    "breaks" => Ok(json!({
+                        "type": "FeatureCollection",
+                        "features": [
+                            {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0.5,4.5],[5.5,4.5]]},"properties":{"kind":"brow"}},
+                            {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0.5,2.5],[5.5,2.5]]},"properties":{"kind":"toe"}}
+                        ]
+                    })),
                     _ => Err(format!("unexpected layer {layer}")),
                 }
             }
@@ -763,6 +770,38 @@ fn demo_pit_adds_a_raster() {
     .unwrap();
     assert_eq!(host.added.len(), 1);
     assert!(out["report"].as_str().unwrap().contains("Demo quarry"));
+}
+
+#[test]
+fn breakline_pairs_makes_a_pair() {
+    let dir = std::env::temp_dir().join(format!("isoliner-bp-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dem.tif");
+    let mut z = vec![0.0f32; 36];
+    for r in 0..6 {
+        for c in 0..6 {
+            z[r * 6 + c] = 10.0 - (r + c) as f32;
+        }
+    }
+    write_grid(&src, &z, 6, 6, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::breakline_pairs(
+        &mut host,
+        &json!({
+            "input": "breaks",
+            "dem": "dem",
+            "kind_field": "kind",
+            "max_dist": 50.0,
+            "min_share": 0.2
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert!(host.layers.len() >= 2, "layers: {}", host.layers.len());
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Pairs:"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

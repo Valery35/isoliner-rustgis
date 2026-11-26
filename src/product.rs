@@ -59,6 +59,7 @@ pub mod tab {
                     Item::Command("catchment-stats"),
                     Item::Command("cut-fill"),
                     Item::Command("breakline-candidates"),
+                    Item::Command("breakline-pairs"),
                     Item::Command("topo-demo-pit"),
                     Item::Command("snap-elevations"),
                     Item::Command("downhill-trace"),
@@ -278,6 +279,12 @@ impl Product for Isoliner {
             }
             "bridge-removal" => {
                 match crate::raster_cmd::bridge_removal(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "breakline-pairs" => {
+                match crate::raster_cmd::breakline_pairs(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
                     Err(e) => json!({"error": e}),
                 }
