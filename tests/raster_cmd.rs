@@ -29,6 +29,7 @@ struct Fake {
     added: Vec<PathBuf>,
     exported: Vec<String>,
     rasters: std::collections::HashMap<String, PathBuf>,
+    layers: Vec<(String, J)>,
 }
 
 impl Call for Fake {
@@ -54,6 +55,11 @@ impl Call for Fake {
                 self.added
                     .push(PathBuf::from(params["path"].as_str().unwrap()));
                 Ok(json!({"layer": self.added.len() + 1}))
+            }
+            "host.addLayer" => {
+                let name = params["name"].as_str().unwrap_or("").to_string();
+                self.layers.push((name, params["geojson"].clone()));
+                Ok(json!({"layer": self.layers.len()}))
             }
             _ => Err(format!("unexpected {op}")),
         }
@@ -323,6 +329,63 @@ fn flow_d8_drains_a_bowl() {
     assert_ne!(d.z[0], 255.0);
     let report = out["report"].as_str().unwrap();
     assert!(report.contains("Maximum accumulation"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn river_network_adds_lines() {
+    let dir = std::env::temp_dir().join(format!("isoliner-rn-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("slope.tif");
+    // 6x6 plane sloping south-east: every cell drains to the bottom-right corner.
+    let mut z = vec![0.0f32; 36];
+    for r in 0..6 {
+        for c in 0..6 {
+            z[r * 6 + c] = 10.0 - (r as f32 + c as f32);
+        }
+    }
+    write_grid(&src, &z, 6, 6, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::river_network(
+        &mut host,
+        &json!({"input": "dem", "threshold": 2.0, "fill": true}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 1);
+    let (name, fc) = &host.layers[0];
+    assert_eq!(name, "River network");
+    assert!(!fc["features"].as_array().unwrap().is_empty());
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Links:"), "{report}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn peaks_pits_adds_two_layers() {
+    let dir = std::env::temp_dir().join(format!("isoliner-pp-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("extrema.tif");
+    let mut z = vec![10.0f32; 25];
+    z[12] = 20.0;
+    z[6] = 0.0;
+    write_grid(&src, &z, 5, 5, 1.0, 0.0, 0.0);
+    let mut host = Fake::default();
+    host.rasters.insert("dem".into(), src);
+    let out = raster_cmd::peaks_pits(
+        &mut host,
+        &json!({"input": "dem", "window": 3, "min_prominence": 1.0}),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.layers.len(), 2);
+    assert_eq!(host.layers[0].0, "Peaks");
+    assert_eq!(host.layers[1].0, "Pits");
+    assert_eq!(host.layers[0].1["features"].as_array().unwrap().len(), 1);
+    assert_eq!(host.layers[1].1["features"].as_array().unwrap().len(), 1);
+    let report = out["report"].as_str().unwrap();
+    assert!(report.contains("Peaks: 1, pits: 1"), "{report}");
     std::fs::remove_dir_all(&dir).ok();
 }
 

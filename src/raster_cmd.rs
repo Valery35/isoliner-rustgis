@@ -1502,6 +1502,142 @@ pub fn flow_d8(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String>
     Ok(json!({"report": lines.join("\n"), "messages": lines}))
 }
 
+/// 2.06 Речная сеть: команда `river-network`.
+pub fn river_network(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбрана входная ЦМР.",
+                "No input DEM is chosen.",
+            )
+            .to_string()
+        })?;
+    let threshold = params["threshold"].as_f64().unwrap_or(1000.0).max(1.0);
+    let fill = params["fill"].as_bool().unwrap_or(true);
+    let dir = run_dir("river-network")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let mut z = g.z.clone();
+    if fill {
+        crate::topo_prep::fill_depressions(&mut z, g.height, g.width, nodata);
+    }
+    let d = crate::topo_flow::d8_flow(&z, g.height, g.width, nodata);
+    let acc = crate::topo_flow::flow_accumulation(&d, None, g.height, g.width, nodata);
+    let links = crate::topo_flow::river_links(&d, &acc, g.height, g.width, threshold);
+    let (x0, y0) = g.origin();
+    let (cx, cy) = g.cell;
+    let mut features = Vec::new();
+    for l in &links {
+        let coords: Vec<J> = l
+            .cells
+            .iter()
+            .map(|&k| {
+                let r = k / g.width;
+                let c = k % g.width;
+                json!([x0 + (c as f64 + 0.5) * cx, y0 - (r as f64 + 0.5) * cy])
+            })
+            .collect();
+        let mut length = 0.0f64;
+        for w in l.cells.windows(2) {
+            let (r1, c1) = (w[0] / g.width, w[0] % g.width);
+            let (r2, c2) = (w[1] / g.width, w[1] % g.width);
+            let dx = (c2 as f64 - c1 as f64) * cx;
+            let dy = (r2 as f64 - r1 as f64) * cy;
+            length += (dx * dx + dy * dy).sqrt();
+        }
+        features.push(json!({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": coords},
+            "properties": {
+                "order": l.order,
+                "acc_out": l.acc_out,
+                "length_m": length
+            }
+        }));
+    }
+    let fc = json!({"type": "FeatureCollection", "features": features});
+    let name = t(lang, "Речная сеть", "River network");
+    host.call("host.addLayer", json!({"name": name, "geojson": fc}))?;
+    let lines = vec![
+        pyfmt::format(
+            t(lang, "Звеньев: %d.", "Links: %d."),
+            &[Arg::from(links.len() as f64)],
+        ),
+        pyfmt::format(
+            t(
+                lang,
+                "Порог аккумуляции: %.4g ячеек.",
+                "Accumulation threshold: %.4g cells.",
+            ),
+            &[Arg::from(threshold)],
+        ),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// 2.09 Вершины и ямы: команда `peaks-pits`.
+pub fn peaks_pits(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let layer = params["input"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            t(
+                lang,
+                "Не выбран растр рельефа.",
+                "No elevation raster is chosen.",
+            )
+            .to_string()
+        })?;
+    let window = params["window"].as_u64().unwrap_or(3).max(3) as usize;
+    let min_prominence = params["min_prominence"].as_f64().unwrap_or(0.0);
+    let dir = run_dir("peaks-pits")?;
+    let g = export_raster(host, layer, &dir)?;
+    let nodata = g.nodata.unwrap_or(f64::NAN);
+    let found = crate::topo_ext::peaks_pits(
+        &g.z,
+        g.height,
+        g.width,
+        nodata,
+        window,
+        min_prominence,
+    );
+    let (x0, y0) = g.origin();
+    let (cx, cy) = g.cell;
+    let mut peaks = Vec::new();
+    let mut pits = Vec::new();
+    for p in &found {
+        let x = x0 + (p.col as f64 + 0.5) * cx;
+        let y = y0 - (p.row as f64 + 0.5) * cy;
+        let f = json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [x, y]},
+            "properties": {"z": p.z, "prominence": p.prominence}
+        });
+        match p.kind {
+            crate::topo_ext::Extremum::Peak => peaks.push(f),
+            crate::topo_ext::Extremum::Pit => pits.push(f),
+        }
+    }
+    let peaks_name = t(lang, "Вершины", "Peaks");
+    let pits_name = t(lang, "Ямы", "Pits");
+    host.call(
+        "host.addLayer",
+        json!({"name": peaks_name, "geojson": {"type": "FeatureCollection", "features": peaks}}),
+    )?;
+    host.call(
+        "host.addLayer",
+        json!({"name": pits_name, "geojson": {"type": "FeatureCollection", "features": pits}}),
+    )?;
+    let lines = vec![pyfmt::format(
+        t(lang, "Вершин: %d, ям: %d.", "Peaks: %d, pits: %d."),
+        &[Arg::from(peaks.len() as f64), Arg::from(pits.len() as f64)],
+    )];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

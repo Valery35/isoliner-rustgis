@@ -202,6 +202,134 @@ pub fn river_network(
     (network, strahler)
 }
 
+/// Звено речной сети: ячейки вниз по течению, порядок Стралера,
+/// аккумуляция в замыкании.
+#[derive(Debug, Clone)]
+pub struct RiverLink {
+    pub cells: Vec<usize>,
+    pub order: i32,
+    pub acc_out: f64,
+}
+
+/// Речная сеть звеньями, как `river_network` модуля QGIS: звено идёт
+/// от истока или слияния до следующего слияния (оно же входит в звено)
+/// или до выхода из сети. Порядок Стралера считается по притокам.
+pub fn river_links(
+    dir: &[i32],
+    acc: &[f64],
+    rows: usize,
+    cols: usize,
+    threshold: f64,
+) -> Vec<RiverLink> {
+    let n = rows * cols;
+    const OFF: [(isize, isize); 8] = [
+        (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0),
+    ];
+    let network: Vec<bool> = (0..n)
+        .map(|k| acc[k] >= threshold && acc[k].is_finite())
+        .collect();
+    let mut downstream = vec![usize::MAX; n];
+    let mut indeg = vec![0usize; n];
+    for k in 0..n {
+        if !network[k] || dir[k] < 0 {
+            continue;
+        }
+        let r = k / cols;
+        let c = k % cols;
+        let (dr, dc) = OFF[dir[k] as usize];
+        let nr = r as isize + dr;
+        let nc = c as isize + dc;
+        if nr < 0 || nr >= rows as isize || nc < 0 || nc >= cols as isize {
+            continue;
+        }
+        let nk = nr as usize * cols + nc as usize;
+        if network[nk] {
+            downstream[k] = nk;
+            indeg[nk] += 1;
+        }
+    }
+    let mut links = Vec::new();
+    for k in 0..n {
+        if !network[k] || (indeg[k] != 0 && indeg[k] < 2) {
+            continue;
+        }
+        let mut cells = vec![k];
+        let mut cur = k;
+        loop {
+            let next = downstream[cur];
+            if next == usize::MAX {
+                break;
+            }
+            cells.push(next);
+            cur = next;
+            if indeg[next] >= 2 {
+                break;
+            }
+        }
+        if cells.len() >= 2 {
+            links.push(RiverLink {
+                cells,
+                order: 0,
+                acc_out: acc[cur],
+            });
+        }
+    }
+    // Притоки каждого узла: звенья, оканчивающиеся в этой ячейке.
+    let mut inflows: std::collections::HashMap<usize, Vec<usize>> =
+        std::collections::HashMap::new();
+    for (i, l) in links.iter().enumerate() {
+        if let Some(&end) = l.cells.last() {
+            inflows.entry(end).or_default().push(i);
+        }
+    }
+    // Порядок Стралера явным стеком: без рекурсии по длинным цепочкам.
+    let mut state = vec![0u8; links.len()];
+    for root in 0..links.len() {
+        if state[root] == 2 {
+            continue;
+        }
+        let mut stack = vec![root];
+        while let Some(&cur) = stack.last() {
+            if state[cur] == 2 {
+                stack.pop();
+                continue;
+            }
+            let start = *links[cur].cells.first().unwrap_or(&usize::MAX);
+            let ups = inflows.get(&start).cloned().unwrap_or_default();
+            if state[cur] == 0 {
+                state[cur] = 1;
+                let todo: Vec<usize> = ups
+                    .iter()
+                    .copied()
+                    .filter(|&u| u != cur && state[u] == 0)
+                    .collect();
+                if !todo.is_empty() {
+                    stack.extend(todo);
+                    continue;
+                }
+            }
+            let vals: Vec<i32> = ups
+                .iter()
+                .filter(|&&u| u != cur && state[u] == 2)
+                .map(|&u| links[u].order)
+                .collect();
+            links[cur].order = if vals.is_empty() {
+                1
+            } else {
+                let top = *vals.iter().max().unwrap_or(&0);
+                if vals.iter().filter(|&&v| v == top).count() >= 2 {
+                    top + 1
+                } else {
+                    top
+                }
+            };
+            state[cur] = 2;
+            stack.pop();
+        }
+    }
+    links
+}
+
 /// Водосбор от точки: все ячейки, из которых вода приходит в данную.
 /// Возвращает маску водосбора.
 pub fn watershed(

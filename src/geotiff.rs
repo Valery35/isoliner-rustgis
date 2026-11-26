@@ -44,6 +44,25 @@ pub struct Grid {
 }
 
 impl Grid {
+    /// Привязка: координаты левого верхнего угла растра (X, Y).
+    /// Tiepoint может быть не в (0,0): тогда начало пересчитывается.
+    pub fn origin(&self) -> (f64, f64) {
+        let get = |t: Tag| {
+            self.geo_f64
+                .iter()
+                .find(|(k, _)| *k == t)
+                .map(|(_, v)| v)
+        };
+        if let Some(tp) = get(Tag::ModelTiepointTag).filter(|tp| tp.len() >= 6) {
+            let (i, j, x, y) = (tp[0], tp[1], tp[3], tp[4]);
+            return (x - i * self.cell.0, y + j * self.cell.1);
+        }
+        if let Some(m) = get(Tag::ModelTransformationTag).filter(|m| m.len() >= 8) {
+            return (m[3], m[7]);
+        }
+        (0.0, 0.0)
+    }
+
     /// Новый растр с привязкой: левый нижний угол `(xmin, ymin)`,
     /// квадратная ячейка `cell`. Верх севера - `ymin + height*cell`.
     pub fn from_geotransform(width: usize, height: usize, xmin: f64, ymin: f64, cell: f64) -> Self {

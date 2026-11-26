@@ -51,6 +51,8 @@ pub mod tab {
                     Item::Command("slope-aspect"),
                     Item::Command("fill-depressions"),
                     Item::Command("flow-d8"),
+                    Item::Command("river-network"),
+                    Item::Command("peaks-pits"),
                 ],
             },
             Group {
@@ -174,6 +176,16 @@ impl Product for Isoliner {
                 }
             }
             "flow-d8" => match crate::raster_cmd::flow_d8(host, &req["params"], lang) {
+                Ok(v) => json!({"ok": v}),
+                Err(e) => json!({"error": e}),
+            },
+            "river-network" => {
+                match crate::raster_cmd::river_network(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "peaks-pits" => match crate::raster_cmd::peaks_pits(host, &req["params"], lang) {
                 Ok(v) => json!({"ok": v}),
                 Err(e) => json!({"error": e}),
             },
