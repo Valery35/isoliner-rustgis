@@ -46,7 +46,7 @@ pub mod tab {
             },
             Group {
                 label: l("2. Topography", "2. Топография"),
-                layout: Layout::Large,
+                layout: Layout::Small,
                 items: &[
                     Item::Command("slope-aspect"),
                     Item::Command("fill-depressions"),
@@ -64,6 +64,7 @@ pub mod tab {
                     Item::Command("snap-elevations"),
                     Item::Command("downhill-trace"),
                     Item::Command("bridge-removal"),
+                    Item::Command("topo2raster"),
                 ],
             },
             Group {
@@ -285,6 +286,12 @@ impl Product for Isoliner {
             }
             "breakline-pairs" => {
                 match crate::raster_cmd::breakline_pairs(host, &req["params"], lang) {
+                    Ok(v) => json!({"ok": v}),
+                    Err(e) => json!({"error": e}),
+                }
+            }
+            "topo2raster" => {
+                match crate::raster_cmd::topo2raster_cmd(host, &req["params"], lang) {
                     Ok(v) => json!({"ok": v}),
                     Err(e) => json!({"error": e}),
                 }

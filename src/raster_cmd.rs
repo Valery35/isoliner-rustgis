@@ -1815,6 +1815,23 @@ fn line_parts(geometry: &J) -> Vec<Vec<(f64, f64)>> {
     }
 }
 
+/// Обойти координаты GeoJSON вглубь и собрать охват.
+fn collect_bbox(v: &J, a: &mut f64, b: &mut f64, c: &mut f64, d: &mut f64) {
+    let Some(arr) = v.as_array() else { return };
+    if arr.len() >= 2 {
+        if let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64()) {
+            *a = a.min(x);
+            *b = b.min(y);
+            *c = c.max(x);
+            *d = d.max(y);
+            return;
+        }
+    }
+    for item in arr {
+        collect_bbox(item, a, b, c, d);
+    }
+}
+
 /// Медиана ряда, как `np.median`.
 fn median(v: &mut [f64]) -> f64 {
     if v.is_empty() {
@@ -2824,6 +2841,135 @@ pub fn breakline_pairs(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
         pyfmt::format(t(lang, "Непарных: %d.", "Orphans: %d."), &[Arg::from(orphans.len() as f64)]),
     ];
     Ok(json!({"report": lines_report.join("\n"), "messages": lines_report}))
+}
+
+/// 2.03 Topo2Raster: команда `topo2raster`.
+pub fn topo2raster_cmd(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J, String> {
+    let contours = params["contours"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| t(lang, "Не выбран слой горизонталей.", "No contour layer is chosen.").to_string())?;
+    let field = params["field"].as_str().unwrap_or("");
+    if field.is_empty() {
+        return Err(t(lang, "Не выбрано поле отметки.", "No elevation field is chosen.").to_string());
+    }
+    let cell = params["cell"].as_f64().unwrap_or(0.0);
+    let iterations = params["iterations"].as_u64().unwrap_or(0).max(1) as usize;
+    let min_drop = params["min_drop"].as_f64().unwrap_or(0.0);
+    let depth_tol = params["depth_tol"].as_f64().unwrap_or(0.0);
+    let dir = run_dir("topo2raster")?;
+    let fc = host.call("host.features", json!({"layer": contours, "crs": "layer"}))?;
+    let mut points: Vec<(f64, f64, f64, f64)> = Vec::new();
+    let (mut xmin, mut ymin, mut xmax, mut ymax) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let z = f["properties"][field]
+            .as_f64()
+            .or_else(|| f["properties"][field].as_str().and_then(|s| s.parse().ok()));
+        let Some(z) = z else { continue };
+        for part in line_parts(&f["geometry"]) {
+            for (x, y) in part {
+                points.push((x, y, z, 0.0));
+                xmin = xmin.min(x);
+                xmax = xmax.max(x);
+                ymin = ymin.min(y);
+                ymax = ymax.max(y);
+            }
+        }
+    }
+    if points.is_empty() {
+        return Err(t(lang, "В горизонталях нет линий с числовой отметкой.", "The contours hold no lines with a numeric elevation.").to_string());
+    }
+    // Охват: по слою охвата, если задан, иначе по горизонталям.
+    let mut extent = (xmin, ymin, xmax, ymax);
+    if let Some(ext) = params["extent"].as_str().filter(|s| !s.is_empty()) {
+        let efc = host.call("host.features", json!({"layer": ext, "crs": "layer"}))?;
+        let (mut a, mut b, mut c, mut d) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for f in efc["features"].as_array().into_iter().flatten() {
+            collect_bbox(&f["geometry"]["coordinates"], &mut a, &mut b, &mut c, &mut d);
+        }
+        if c > a && d > b {
+            extent = (a, b, c, d);
+        }
+    }
+    let diag = ((extent.2 - extent.0).powi(2) + (extent.3 - extent.1).powi(2)).sqrt();
+    let cell = if cell > 0.0 { cell } else { (diag / 500.0).max(1e-6) };
+    let streams = read_lines(host, params["streams"].as_str())?;
+    let breaklines = read_lines(host, params["breaklines"].as_str())?;
+    let lakes = read_polygons(host, params["lakes"].as_str())?;
+    let (z, rows, cols, x0, y_top) = crate::topo_t2r::topo2raster(
+        &points,
+        &streams,
+        &breaklines,
+        &lakes,
+        extent,
+        cell,
+        Some(iterations),
+        Some(min_drop),
+        Some(depth_tol),
+    )?;
+    let grid = geotiff::Grid::from_geotransform(cols, rows, x0, y_top - rows as f64 * cell, cell);
+    let z32: Vec<f32> = z.iter().map(|&v| v as f32).collect();
+    let path = dir.join(format!("{}.tif", t(lang, "Рельеф из горизонталей", "Relief from contours")));
+    geotiff::write_like(&path, &grid, &z32, NODATA)?;
+    add_raster(host, &path)?;
+    let lines = vec![
+        pyfmt::format(t(lang, "Горизонталей: %d вершин, сетка %d на %d, ячейка %.4g.", "Contours: %d vertices, grid %d by %d, cell %.4g."), &[Arg::from(points.len() as f64), Arg::from(cols as f64), Arg::from(rows as f64), Arg::from(cell)]),
+    ];
+    Ok(json!({"report": lines.join("\n"), "messages": lines}))
+}
+
+/// Прочитать линии слоя (пустой слой - пустой список).
+fn read_lines(host: &mut dyn Call, layer: Option<&str>) -> Result<Vec<Vec<(f64, f64)>>, String> {
+    let Some(name) = layer.filter(|s| !s.is_empty()) else { return Ok(Vec::new()) };
+    let fc = host.call("host.features", json!({"layer": name, "crs": "layer"}))?;
+    let mut out = Vec::new();
+    for f in fc["features"].as_array().into_iter().flatten() {
+        for part in line_parts(&f["geometry"]) {
+            if part.len() >= 2 {
+                out.push(part);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Прочитать полигоны слоя как озёра.
+fn read_polygons(host: &mut dyn Call, layer: Option<&str>) -> Result<Vec<crate::topo_t2r::Lake>, String> {
+    let Some(name) = layer.filter(|s| !s.is_empty()) else { return Ok(Vec::new()) };
+    let fc = host.call("host.features", json!({"layer": name, "crs": "layer"}))?;
+    let ring = |coords: &J| -> Vec<(f64, f64)> {
+        coords
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| {
+                let a = p.as_array()?;
+                Some((a.first()?.as_f64()?, a.get(1)?.as_f64()?))
+            })
+            .collect()
+    };
+    let mut out = Vec::new();
+    for f in fc["features"].as_array().into_iter().flatten() {
+        let g = &f["geometry"];
+        match g["type"].as_str().unwrap_or("") {
+            "Polygon" => {
+                let rings: Vec<Vec<(f64, f64)>> = g["coordinates"].as_array().into_iter().flatten().map(ring).filter(|r| r.len() >= 3).collect();
+                if !rings.is_empty() {
+                    out.push(crate::topo_t2r::Lake::new(rings));
+                }
+            }
+            "MultiPolygon" => {
+                for poly in g["coordinates"].as_array().into_iter().flatten() {
+                    let rings: Vec<Vec<(f64, f64)>> = poly.as_array().into_iter().flatten().map(ring).filter(|r| r.len() >= 3).collect();
+                    if !rings.is_empty() {
+                        out.push(crate::topo_t2r::Lake::new(rings));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

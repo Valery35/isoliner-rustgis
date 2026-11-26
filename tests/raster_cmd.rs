@@ -85,6 +85,17 @@ impl Call for Fake {
                             {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0.5,2.5],[5.5,2.5]]},"properties":{"kind":"toe"}}
                         ]
                     })),
+                    "small_bounds" => Ok(json!({
+                        "type": "FeatureCollection",
+                        "features": [{
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]]
+                            },
+                            "properties": {}
+                        }]
+                    })),
                     _ => Err(format!("unexpected layer {layer}")),
                 }
             }
@@ -802,6 +813,27 @@ fn breakline_pairs_makes_a_pair() {
     let report = out["report"].as_str().unwrap();
     assert!(report.contains("Pairs:"), "{report}");
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn topo2raster_builds_a_raster() {
+    let mut host = Fake::default();
+    let out = raster_cmd::topo2raster_cmd(
+        &mut host,
+        &json!({
+            "contours": "contours",
+            "field": "elev",
+            "extent": "small_bounds",
+            "cell": 1.0,
+            "iterations": 5,
+            "min_drop": 0.0,
+            "depth_tol": 0.0
+        }),
+        Lang::En,
+    )
+    .unwrap();
+    assert_eq!(host.added.len(), 1);
+    assert!(out["report"].as_str().unwrap().contains("Contours:"));
 }
 
 #[test]

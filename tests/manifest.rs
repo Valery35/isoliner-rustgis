@@ -146,7 +146,8 @@ fn check_tab(m: &J) {
         assert!(gl.chars().count() <= 32);
         assert!(ru[gl].is_string(), "нет перевода группы {gl}");
         let items = g["items"].as_array().unwrap();
-        assert!((1..=16).contains(&items.len()));
+        let max = if g["layout"].as_str() == Some("small") { 48 } else { 16 };
+        assert!((1..=max).contains(&items.len()), "group {gl}: {} items", items.len());
         entries(gl, items, &mut all, 1);
     }
     for (_, it) in &all {
