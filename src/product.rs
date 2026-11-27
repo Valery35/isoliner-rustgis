@@ -155,6 +155,33 @@ pub mod tab {
             },
         ],
     };
+
+    /// Число команд на вкладке (без учёта инструментов панели).
+    pub fn command_count() -> usize {
+        use std::collections::HashSet;
+        let mut ids = HashSet::new();
+        let mut walk = |items: &[Item]| {
+            for it in items {
+                match it {
+                    Item::Command(id) => {
+                        ids.insert(*id);
+                    }
+                    Item::Menu(menu) => {
+                        for m in menu.items {
+                            if let Item::Command(id) = m {
+                                ids.insert(*id);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        };
+        for g in TAB.groups {
+            walk(g.items);
+        }
+        ids.len()
+    }
 }
 
 /// Папка данных расширения во временной папке системы.
@@ -365,11 +392,12 @@ impl Product for Isoliner {
                 }
             }
             "about" => {
+                let total = tools::OFFERED.len() + tab::command_count();
                 let text = format!(
-                    "Isoliner {} (module {}), {} tools",
+                    "Isoliner {} (module {}), {} tools/commands",
                     env!("CARGO_PKG_VERSION"),
                     self.catalog.version,
-                    tools::OFFERED.len()
+                    total
                 );
                 let _ = host.call("host.notify", json!({"text": &text})).ok();
                 json!({"ok": {"text": text}})

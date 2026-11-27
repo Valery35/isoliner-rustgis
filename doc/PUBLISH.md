@@ -14,12 +14,12 @@ GitHub) и `site/posts_rustgis_<номер>_social.md` (посты).
 уведомление с версией и количеством инструментов. Добавлен
 `doc/NOT_IMPLEMENTED.md` со списком нереализованных инструментов.
 Тесты и clippy проходят. Пакет `isoliner-0.1.23.rgplugin`, SHA-256
-`ec700ba89024a3b944e5a57263f52e04c167f3158f312422e136933a23b91ecf`.
+`effd63ab27548d4400298cbe94ebb545d1ee7fa33bd9d1edc72bb9dc8475687c`.
 
 | Площадка | Значение |
 |---|---|
-| GitHub | ждёт создания релиза |
-| Dropbox | ждёт копирования пакета |
+| GitHub | https://github.com/Valery35/isoliner-rustgis/releases/tag/rustgis-v0.1.23 |
+| Dropbox | `ИИ\Isoliner\isoliner-0.1.23.rgplugin`, SHA-256 совпадает с GitHub |
 | Telegram |  |
 | ВК |  |
 | Mastodon |  |
