@@ -71,7 +71,7 @@ pub fn flow_accumulation(
     nodata: f64,
 ) -> Vec<f64> {
     let n = rows * cols;
-    let mut acc = weights.map(|w| w.to_vec()).unwrap_or_else(|| vec![1.0; n]);
+    let acc = weights.map(|w| w.to_vec()).unwrap_or_else(|| vec![1.0; n]);
     // Обратные зависимости: для каждой ячейки — кто в неё вливается.
     let mut deps: Vec<Vec<usize>> = vec![Vec::new(); n];
     const OFF: [(isize, isize); 8] = [

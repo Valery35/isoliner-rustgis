@@ -1818,14 +1818,14 @@ fn line_parts(geometry: &J) -> Vec<Vec<(f64, f64)>> {
 /// Обойти координаты GeoJSON вглубь и собрать охват.
 fn collect_bbox(v: &J, a: &mut f64, b: &mut f64, c: &mut f64, d: &mut f64) {
     let Some(arr) = v.as_array() else { return };
-    if arr.len() >= 2 {
-        if let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64()) {
-            *a = a.min(x);
-            *b = b.min(y);
-            *c = c.max(x);
-            *d = d.max(y);
-            return;
-        }
+    if arr.len() >= 2
+        && let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64())
+    {
+        *a = a.min(x);
+        *b = b.min(y);
+        *c = c.max(x);
+        *d = d.max(y);
+        return;
     }
     for item in arr {
         collect_bbox(item, a, b, c, d);
@@ -1892,7 +1892,7 @@ pub fn contour_residual(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J
     let mut elevs = Vec::new();
     let mut holds = Vec::new();
     let mut has_hold = false;
-    for (idx, f) in fc["features"].as_array().into_iter().flatten().enumerate() {
+    for f in fc["features"].as_array().into_iter().flatten() {
         let elev = f["properties"][field]
             .as_f64()
             .or_else(|| f["properties"][field].as_str().and_then(|s| s.parse().ok()));
@@ -2615,7 +2615,9 @@ pub fn catchment_stats(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
     }
     let (x0, y0) = gb.origin();
     let (cx, cy) = gb.cell;
-    let mut by: std::collections::BTreeMap<i64, (usize, f64, f64, f64, f64, f64, f64)> = std::collections::BTreeMap::new();
+    #[allow(clippy::type_complexity)]
+    let mut by: std::collections::BTreeMap<i64, (usize, f64, f64, f64, f64, f64, f64)> =
+        std::collections::BTreeMap::new();
     for k in 0..gb.z.len() {
         let id = gb.z[k];
         if !id.is_finite() || id <= 0.0 {
@@ -2724,10 +2726,10 @@ pub fn breakline_pairs(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
                     let t = s as f64 / steps as f64;
                     let x = w[0].0 + (w[1].0 - w[0].0) * t;
                     let y = w[0].1 + (w[1].1 - w[0].1) * t;
-                    if let Some((r, c)) = to_cell(x, y) {
-                        if let Some(gr) = &g {
-                            toe_cells.entry(r * gr.width + c).or_default().push(li);
-                        }
+                    if let Some((r, c)) = to_cell(x, y)
+                        && let Some(gr) = &g
+                    {
+                        toe_cells.entry(r * gr.width + c).or_default().push(li);
                     }
                 }
             }
@@ -2755,11 +2757,11 @@ pub fn breakline_pairs(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
                     let max_cells = (max_dist / cx.max(cy)).ceil() as usize;
                     let mut hit = None;
                     for _ in 0..max_cells {
-                        if let Some(ids) = toe_cells.get(&(r * gr.width + c)) {
-                            if let Some(&id) = ids.iter().find(|&&id| id != bi) {
-                                hit = Some(id);
-                                break;
-                            }
+                        if let Some(ids) = toe_cells.get(&(r * gr.width + c))
+                            && let Some(&id) = ids.iter().find(|&&id| id != bi)
+                        {
+                            hit = Some(id);
+                            break;
                         }
                         let dir = d[r * gr.width + c];
                         if dir < 0 {
@@ -2784,11 +2786,11 @@ pub fn breakline_pairs(host: &mut dyn Call, params: &J, lang: Lang) -> Result<J,
         if total == 0 {
             continue;
         }
-        if let Some((&toe, &n)) = votes.iter().max_by_key(|&(_, &n)| n) {
-            if n as f64 / total as f64 >= min_share {
-                pair_of[bi] = Some(toe);
-                paired_toes.insert(toe);
-            }
+        if let Some((&toe, &n)) = votes.iter().max_by_key(|&(_, &n)| n)
+            && n as f64 / total as f64 >= min_share
+        {
+            pair_of[bi] = Some(toe);
+            paired_toes.insert(toe);
         }
     }
     let mut top = Vec::new();
@@ -3109,10 +3111,10 @@ pub fn variogram_map_cmd(host: &mut dyn Call, params: &J, lang: Lang) -> Result<
         xs.push(x);
         ys.push(y);
         vs.push(z);
-        if !wfield.is_empty() {
-            if let Some(w) = f["properties"][wfield].as_f64() {
-                ws.push(w);
-            }
+        if !wfield.is_empty()
+            && let Some(w) = f["properties"][wfield].as_f64()
+        {
+            ws.push(w);
         }
     }
     if vs.len() < 3 {

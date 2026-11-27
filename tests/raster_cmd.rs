@@ -725,8 +725,8 @@ fn catchment_stats_reports_basins() {
     let basins = dir.join("basins.tif");
     let dem = dir.join("dem.tif");
     let mut bz = vec![1.0f32; 25];
-    for k in 0..12 {
-        bz[k] = 2.0;
+    for item in bz.iter_mut().take(12) {
+        *item = 2.0;
     }
     let dz: Vec<f32> = (0..25).map(|k| 10.0 + k as f32).collect();
     write_grid(&basins, &bz, 5, 5, 1.0, 0.0, 0.0);

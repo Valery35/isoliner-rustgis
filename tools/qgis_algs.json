@@ -1,0 +1,476 @@
+[
+  {
+    "class": "DeclusteringAlgorithm",
+    "name": "1.05 Декластеризация (веса)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "Kriging2DAlgorithm",
+    "name": "1.01 2D Kriging (точки → растр)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "CategoricalIndicatorAlgorithm",
+    "name": "3.01 Категориальный индикаторный кригинг",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "RasterToIsolinesAlgorithm",
+    "name": "1.04 Изолинии из растра",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "CrossValidationAlgorithm",
+    "name": "1.08 Кросс-валидация вариограммы",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "ExampleWellsAlgorithm",
+    "name": "1.10 Пример скважин (демо)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "GeophysProfilesDemoAlgorithm",
+    "name": "1.11 Пример геофизических профилей (демо)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "MbaGridAlgorithm",
+    "name": "1.03 MBA: мультисеточные B-сплайны (точки → растр)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "SurfaceGraftAlgorithm",
+    "name": "1.12 Врезка подробной поверхности в региональную",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "VariableSupportDensityAlgorithm",
+    "name": "3.07 Плотность по замерам (переменная опора)",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "DensityDemoAlgorithm",
+    "name": "3.08 Пример для плотности (демо)",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "IndicatorDriftDemoAlgorithm",
+    "name": "3.09 Пример для 3.01 и 3.02 (демо)",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "ExperimentalVariogramAlgorithm",
+    "name": "1.06 Вариограмма (экспериментальная)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "VariogramMapAlgorithm",
+    "name": "1.07 Вариограммная карта (анизотропия)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "FlowGradientAlgorithm",
+    "name": "3.04 Гидравлический градиент и направление потока",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "ExternalDriftKrigingAlgorithm",
+    "name": "3.02 Кригинг с внешним дрейфом (External Drift)",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "ExceedanceProbabilityAlgorithm",
+    "name": "3.03 Карта вероятности превышения",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "DarcyFluxAlgorithm",
+    "name": "3.05 Удельный расход (закон Дарси)",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "PlastReferenceTemplateAlgorithm",
+    "name": "4.11 Образец справочника пластов",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "AttitudeFromTraceAlgorithm",
+    "name": "4.12 Элементы залегания по следу выхода",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionDemoAlgorithm",
+    "name": "4.10 Пример для разреза (демо)",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionAlgorithm",
+    "name": "4.01 Разрез по линии",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "CompositionOnSectionAlgorithm",
+    "name": "4.03 Состав пласта на разрезе",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionGridIntersectAlgorithm",
+    "name": "4.04 Пересечение поверхностей с разрезом",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionVectorIntersectAlgorithm",
+    "name": "4.05 Пересечение векторов с разрезом",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionTinIntersectAlgorithm",
+    "name": "4.06 Пересечение TIN с разрезом",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionProjectAlgorithm",
+    "name": "4.07 Проекция объектов на разрез",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SectionUnprojectAlgorithm",
+    "name": "4.08 Спроецировать с разреза",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "ShaftUnwrapAlgorithm",
+    "name": "4.09 Развёртка стенки ствола (бета)",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "DrillholesOnSectionAlgorithm",
+    "name": "4.02 Скважины на разрезе (модель бурения)",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SequentialGaussianSimAlgorithm",
+    "name": "3.06 Гауссова симуляция (SGS)",
+    "group_var": "GROUP2",
+    "group": "3. Дополнительные инструменты анализа"
+  },
+  {
+    "class": "MinCurvatureAlgorithm",
+    "name": "1.02 Минимальная кривизна (точки → растр)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "MethodCrossValidationAlgorithm",
+    "name": "1.09 Кросс-валидация метода (LOO)",
+    "group_var": "GROUP",
+    "group": "1. Грид и изолинии"
+  },
+  {
+    "class": "StackBuildAlgorithm",
+    "name": "5.03 Сборка пачки от рельефа",
+    "group_var": "GROUP_GEO",
+    "group": "5. Геологическая модель (бета)"
+  },
+  {
+    "class": "StackFixAlgorithm",
+    "name": "5.04 Коррекция пачки по статистике мощностей",
+    "group_var": "GROUP_GEO",
+    "group": "5. Геологическая модель (бета)"
+  },
+  {
+    "class": "ManifestAlgorithm",
+    "name": "5.05 Манифест модели",
+    "group_var": "GROUP_GEO",
+    "group": "5. Геологическая модель (бета)"
+  },
+  {
+    "class": "FoldMapAlgorithm",
+    "name": "5.06 Складчатость поверхности",
+    "group_var": "GROUP_GEO",
+    "group": "5. Геологическая модель (бета)"
+  },
+  {
+    "class": "StackDemoAlgorithm",
+    "name": "5.02 Пример разреза (демо)",
+    "group_var": "GROUP_GEO",
+    "group": "5. Геологическая модель (бета)"
+  },
+  {
+    "class": "StackCheckAlgorithm",
+    "name": "5.01 Согласованность пачки пластов",
+    "group_var": "GROUP_GEO",
+    "group": "5. Геологическая модель (бета)"
+  },
+  {
+    "class": "RatingCurveAlgorithm",
+    "name": "6.08 Створы и кривые расходов",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "DemoRiverAlgorithm",
+    "name": "6.11 Пример реки (демо)",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "FloodExtentAlgorithm",
+    "name": "6.09 Полигон затопления",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "ImportSectionTableAlgorithm",
+    "name": "6.10 Импорт таблиц створов",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "FractalDimensionAlgorithm",
+    "name": "7.01 Фрактальная размерность",
+    "group_var": "GROUP5",
+    "group": "7. Фрактальный анализ"
+  },
+  {
+    "class": "BoxCountingAlgorithm",
+    "name": "7.02 Box-counting маски",
+    "group_var": "GROUP5",
+    "group": "7. Фрактальный анализ"
+  },
+  {
+    "class": "LineDimensionAlgorithm",
+    "name": "7.03 Размерность линий и границ",
+    "group_var": "GROUP5",
+    "group": "7. Фрактальный анализ"
+  },
+  {
+    "class": "MinkowskiDimensionAlgorithm",
+    "name": "7.04 Размерность Минковского (векторы)",
+    "group_var": "GROUP5",
+    "group": "7. Фрактальный анализ"
+  },
+  {
+    "class": "FractalDemoAlgorithm",
+    "name": "7.05 Пример для фракталов (демо)",
+    "group_var": "GROUP5",
+    "group": "7. Фрактальный анализ"
+  },
+  {
+    "class": "DemDownloadAlgorithm",
+    "name": "2.01 Загрузка ЦМР по рамке",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "TopobaseDownloadAlgorithm",
+    "name": "2.02 Загрузка топоосновы по рамке",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "TopoFillDepressionsAlgorithm",
+    "name": "2.04 Подготовка рельефа",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "TopoDemoReliefAlgorithm",
+    "name": "2.07 Демо-рельеф",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "FlowD8Algorithm",
+    "name": "6.01 Сток и аккумуляция (D8)",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "RiverNetworkAlgorithm",
+    "name": "6.02 Речная сеть",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "BasinsAlgorithm",
+    "name": "6.03 Бассейны и водоразделы",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "GaugeReportAlgorithm",
+    "name": "6.04 Отчёт по створу",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "CatchmentStatsAlgorithm",
+    "name": "6.06 Отчёт по готовому водосбору",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "DitchCatchmentAlgorithm",
+    "name": "6.05 Водосбор. Линии и контуры (канавы, карьеры)",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "SlopeAspectAlgorithm",
+    "name": "2.05 Уклон и экспозиция",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "PeaksAlgorithm",
+    "name": "2.06 Вершины и ямы",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "Topo2RasterAlgorithm",
+    "name": "2.03 Topo2Raster (рельеф из векторов)",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "ContourSplitAlgorithm",
+    "name": "2.08 Разделить горизонтали для проверки",
+    "group_var": "GROUP_TOPODIAG",
+    "group": "2. Топография: диагностика и правка"
+  },
+  {
+    "class": "ContourResidualAlgorithm",
+    "name": "2.09 Невязка горизонталей против ЦМР",
+    "group_var": "GROUP_TOPODIAG",
+    "group": "2. Топография: диагностика и правка"
+  },
+  {
+    "class": "TerracingCheckAlgorithm",
+    "name": "2.10 Диагностика террасинга ЦМР",
+    "group_var": "GROUP_TOPODIAG",
+    "group": "2. Топография: диагностика и правка"
+  },
+  {
+    "class": "TerraceSmoothAlgorithm",
+    "name": "2.11 Снятие ступеней (сглаживание с ограничением)",
+    "group_var": "GROUP_TOPODIAG",
+    "group": "2. Топография: диагностика и правка"
+  },
+  {
+    "class": "CutFillAlgorithm",
+    "name": "2.12 Насыпи и выемки (объёмы работ)",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "BreaklineCandidatesAlgorithm",
+    "name": "2.13 Кандидаты бровок и подошв",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "BreaklinePairsAlgorithm",
+    "name": "2.14 Бровки и подошвы в работу",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "SnapElevationsAlgorithm",
+    "name": "2.16 Профилирование откосов",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "TopoDemoPitAlgorithm",
+    "name": "2.15 Пример карьера (демо)",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "DownhillTraceAlgorithm",
+    "name": "6.07 Линии стока от точек, линий и контуров",
+    "group_var": "GROUP_HYDRO",
+    "group": "6. Гидрология"
+  },
+  {
+    "class": "BridgeRemovalAlgorithm",
+    "name": "2.17 Снятие мостов с ЦМР",
+    "group_var": "GROUP_TOPO",
+    "group": "2. Топография"
+  },
+  {
+    "class": "LandXmlReadAlgorithm",
+    "name": "8.01 Принять LandXML",
+    "group_var": "GROUP_EXCHANGE",
+    "group": "8. Обмен данными"
+  },
+  {
+    "class": "LandXmlWriteAlgorithm",
+    "name": "8.02 Записать LandXML",
+    "group_var": "GROUP_EXCHANGE",
+    "group": "8. Обмен данными"
+  },
+  {
+    "class": "LandXmlDemoAlgorithm",
+    "name": "8.03 Пример LandXML (демо)",
+    "group_var": "GROUP_EXCHANGE",
+    "group": "8. Обмен данными"
+  },
+  {
+    "class": "BedGradesAtCollarsAlgorithm",
+    "name": "4.13 Содержания по пласту в устьях",
+    "group_var": "GROUP3",
+    "group": "4. Разрез"
+  },
+  {
+    "class": "SubsidenceTiltCurvatureAlgorithm",
+    "name": "9.01 Наклоны и кривизна по оседаниям",
+    "group_var": "GROUP_SUBS",
+    "group": "9. Сдвижения"
+  },
+  {
+    "class": "SubsidenceHorizontalAlgorithm",
+    "name": "9.02 Горизонтальные деформации",
+    "group_var": "GROUP_SUBS",
+    "group": "9. Сдвижения"
+  },
+  {
+    "class": "SubsidenceDemoAlgorithm",
+    "name": "9.03 Пример мульды (демо)",
+    "group_var": "GROUP_SUBS",
+    "group": "9. Сдвижения"
+  }
+]

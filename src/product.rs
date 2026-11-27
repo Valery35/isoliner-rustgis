@@ -406,8 +406,8 @@ fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
 /// переводы названий групп в `i18n`. Затем сортирует инструменты по
 /// группе: RustGIS в панели Инструментов склеивает только соседние
 /// одинаковые toolbox, поэтому иначе одна группа повторяется несколько раз.
-pub fn apply_toolbox_groups(tools: &mut Vec<J>, ru: &mut Map<String, J>) {
-    let tools_json: J = serde_json::from_str(TOOLS_JSON).expect("tools.json is valid");
+pub fn apply_toolbox_groups(tools: &mut [J], ru: &mut Map<String, J>) {
+    let tools_json: J = serde_json::from_str(TOOLS_JSON).unwrap_or_default();
     let mut code_by_id = std::collections::HashMap::new();
     if let Some(arr) = tools_json["tools"].as_array() {
         for t in arr {
@@ -419,13 +419,12 @@ pub fn apply_toolbox_groups(tools: &mut Vec<J>, ru: &mut Map<String, J>) {
         }
     }
     for tool in tools.iter_mut() {
-        if let Some(id) = tool.get("id").and_then(|v| v.as_str()) {
-            if let Some(&code) = code_by_id.get(id) {
-                if let Some((en, rus)) = qgis_group(code) {
-                    tool["toolbox"] = J::String(en.to_string());
-                    ru.insert(en.to_string(), J::String(rus.to_string()));
-                }
-            }
+        if let Some(id) = tool.get("id").and_then(|v| v.as_str())
+            && let Some(&code) = code_by_id.get(id)
+            && let Some((en, rus)) = qgis_group(code)
+        {
+            tool["toolbox"] = J::String(en.to_string());
+            ru.insert(en.to_string(), J::String(rus.to_string()));
         }
     }
     // Устойчивая сортировка: инструменты одной группы идут подряд и в

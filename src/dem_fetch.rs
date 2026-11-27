@@ -12,7 +12,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const BUCKET_URL: &str = "https://copernicus-dem-30m.s3.amazonaws.com";
+#[allow(dead_code)]
 const DEFAULT_CELL: f64 = 30.0;
+#[allow(dead_code)]
 const DEFAULT_MAX_TILES: usize = 25;
 
 pub const SOURCE_GLO30: &str = "glo30";
@@ -22,6 +24,7 @@ pub const SOURCE_MAPZEN: &str = "mapzen";
 const MAPZEN_URL: &str = "https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif";
 const MAPZEN_MAX_ZOOM: i32 = 14;
 const MAPZEN_TILE_PX: i32 = 512;
+#[allow(dead_code)]
 const MAPZEN_MAX_XYZ: usize = 256;
 const EARTH_CIRC: f64 = 2.0 * std::f64::consts::PI * 6378137.0;
 

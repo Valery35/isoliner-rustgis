@@ -368,6 +368,7 @@ pub struct TerracingStats {
 }
 
 /// Сводка: кривизна плюс притяжение к уровням.
+#[allow(clippy::too_many_arguments)]
 pub fn terracing_stats(
     z: &[f64],
     rows: usize,
