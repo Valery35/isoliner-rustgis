@@ -26,10 +26,8 @@ pub const OPTIONS: Options = Options {
     xy_tables: &[],
 };
 
-/// Своя вкладка ленты Isoliner: только растровые команды, сгруппированные
-/// по номерам разделов модуля QGIS. Инструменты остаются в панели
-/// Инструментов, чтобы не дублировать их на ленте. Каждая группа - один
-/// выпадающий список, чтобы не занимать ленту десятками значков.
+/// Своя вкладка ленты Isoliner: растровые команды сгруппированы по
+/// разделам модуля QGIS. Инструменты остаются в панели «Инструменты».
 pub mod tab {
     use rustgis_kit::manifest::{Group, Item, Label, Layout, Menu, Tab};
 
@@ -54,16 +52,13 @@ pub mod tab {
     static TERRAIN: Menu = Menu {
         label: l("Terrain", "Рельеф"),
         icon: Some("relief"),
-        help: Some(l("Relief from a DEM and contours", "Рельеф по ЦМР и горизонталям")),
+        help: Some(l("Relief from a DEM", "Рельеф по ЦМР")),
         layout: None,
         items: &[
             Item::Command("topo2raster"),
-            Item::Command("slope-aspect"),
             Item::Command("fill-depressions"),
-            Item::Command("flow-d8"),
-            Item::Command("basins"),
-            Item::Command("topo-demo-pit"),
-            Item::Command("cut-fill"),
+            Item::Command("slope-aspect"),
+            Item::Command("peaks-pits"),
         ],
     };
 
@@ -73,8 +68,9 @@ pub mod tab {
         help: Some(l("Flow, networks and catchments", "Сток, сети и водосборы")),
         layout: None,
         items: &[
+            Item::Command("flow-d8"),
             Item::Command("river-network"),
-            Item::Command("peaks-pits"),
+            Item::Command("basins"),
             Item::Command("gauge-report"),
             Item::Command("ditch-catchment"),
             Item::Command("catchment-stats"),
@@ -83,9 +79,9 @@ pub mod tab {
     };
 
     static PREP: Menu = Menu {
-        label: l("Preparation and checks", "Подготовка и проверка"),
+        label: l("Diagnostics and cleanup", "Диагностика и правка"),
         icon: Some("table"),
-        help: Some(l("DEM cleanup, contours and breaklines", "Чистка ЦМР, горизонтали и бровки")),
+        help: Some(l("Contours, breaklines and DEM cleanup", "Горизонтали, бровки и чистка ЦМР")),
         layout: None,
         items: &[
             Item::Command("bridge-removal"),
@@ -95,6 +91,8 @@ pub mod tab {
             Item::Command("terracing-check"),
             Item::Command("breakline-candidates"),
             Item::Command("breakline-pairs"),
+            Item::Command("cut-fill"),
+            Item::Command("topo-demo-pit"),
         ],
     };
 
@@ -121,29 +119,29 @@ pub mod tab {
         label: l("Isoliner", "Isoliner"),
         groups: &[
             Group {
-                label: l("1. Grid", "1. Грид"),
+                label: l("1. Grids and kriging", "1. Гриды и кригинг"),
                 layout: Layout::Large,
                 items: &[Item::Menu(&GRID)],
             },
             Group {
-                label: l("2. Terrain", "2. Рельеф"),
+                label: l("2. Topography", "2. Топография"),
                 layout: Layout::Large,
                 items: &[Item::Menu(&TERRAIN)],
             },
             Group {
-                label: l("2. Hydrology", "2. Гидрология"),
-                layout: Layout::Large,
-                items: &[Item::Menu(&HYDRO)],
-            },
-            Group {
-                label: l("2. Preparation", "2. Подготовка"),
+                label: l("2. Topography: diagnostics", "2. Топография: диагностика"),
                 layout: Layout::Large,
                 items: &[Item::Menu(&PREP)],
             },
             Group {
-                label: l("3. Additional", "3. Дополнительно"),
+                label: l("3. Additional tools", "3. Дополнительные инструменты"),
                 layout: Layout::Large,
                 items: &[Item::Menu(&EXTRA)],
+            },
+            Group {
+                label: l("6. Hydrology", "6. Гидрология"),
+                layout: Layout::Large,
+                items: &[Item::Menu(&HYDRO)],
             },
             Group {
                 label: l("9. Subsidence", "9. Оседания"),
@@ -366,12 +364,16 @@ impl Product for Isoliner {
                     Err(e) => json!({"error": e}),
                 }
             }
-            "about" => json!({"ok": {
-                "title": "Isoliner",
-                "version": env!("CARGO_PKG_VERSION"),
-                "module": self.catalog.version,
-                "tools": tools::OFFERED.len(),
-            }}),
+            "about" => {
+                let text = format!(
+                    "Isoliner {} (module {}), {} tools",
+                    env!("CARGO_PKG_VERSION"),
+                    self.catalog.version,
+                    tools::OFFERED.len()
+                );
+                let _ = host.call("host.notify", json!({"text": &text})).ok();
+                json!({"ok": {"text": text}})
+            }
             id => no_command(id, lang),
         }
     }
@@ -383,19 +385,19 @@ fn qgis_group(code: &str) -> Option<(&'static str, &'static str)> {
     let major = parts.next()?.parse::<u32>().ok()?;
     let minor = parts.next().unwrap_or("0").parse::<u32>().unwrap_or(0);
     Some(match (major, minor) {
-        (1, _) => ("1. Grid and isolines", "1. Грид и изолинии"),
-        (2, n) if (11..=14).contains(&n) => (
-            "3. Topography: diagnostics and cleanup",
-            "3. Топография: диагностика и правка",
+        (1, _) => ("1. Grids and kriging", "1. Гриды и кригинг"),
+        (2, n) if (8..=99).contains(&n) => (
+            "2. Topography: diagnostics",
+            "2. Топография: диагностика",
         ),
         (2, _) => ("2. Topography", "2. Топография"),
-        (3, _) => ("4. Additional analysis tools", "4. Дополнительные инструменты анализа"),
-        (4, _) => ("5. Section", "5. Разрез"),
-        (5, _) => ("6. Geological model", "6. Геологическая модель"),
-        (6, _) => ("7. River hydrology", "7. Гидрология рек"),
-        (7, _) => ("8. Fractal analysis", "8. Фрактальный анализ"),
-        (8, _) => ("9. Data exchange", "9. Обмен данными"),
-        (9, _) => ("10. Subsidence", "10. Сдвигения"),
+        (3, _) => ("3. Additional tools", "3. Дополнительные инструменты"),
+        (4, _) => ("4. Section", "4. Разрез"),
+        (5, _) => ("5. Geological model", "5. Геологическая модель"),
+        (6, _) => ("6. Hydrology", "6. Гидрология"),
+        (7, _) => ("7. Fractal analysis", "7. Фрактальный анализ"),
+        (8, _) => ("8. Data exchange", "8. Обмен данными"),
+        (9, _) => ("9. Subsidence", "9. Оседания"),
         _ => return None,
     })
 }

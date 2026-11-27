@@ -1,27 +1,27 @@
-# Isoliner для RustGIS - расширение-процесс на крейте rustgis-kit.
-# Copyright (C) 2026 ООО «Информ++». Лицензия Apache 2.0.
+﻿# Isoliner РґР»СЏ RustGIS - СЂР°СЃС€РёСЂРµРЅРёРµ-РїСЂРѕС†РµСЃСЃ РЅР° РєСЂРµР№С‚Рµ rustgis-kit.
+# Copyright (C) 2026 РћРћРћ В«РРЅС„РѕСЂРј++В». Р›РёС†РµРЅР·РёСЏ Apache 2.0.
 # SPDX-License-Identifier: Apache-2.0
 
 [package]
 name = "isoliner-rustgis"
-version = "0.1.22"
+version = "0.1.23"
 edition = "2024"
 license = "Apache-2.0"
-authors = ["ООО «Информ++»"]
-description = "Isoliner для RustGIS: инструменты модуля QGIS Isoliner (гриды, изолинии, геостатистика) расчётом на Rust"
+authors = ["РћРћРћ В«РРЅС„РѕСЂРј++В»"]
+description = "Isoliner РґР»СЏ RustGIS: РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РјРѕРґСѓР»СЏ QGIS Isoliner (РіСЂРёРґС‹, РёР·РѕР»РёРЅРёРё, РіРµРѕСЃС‚Р°С‚РёСЃС‚РёРєР°) СЂР°СЃС‡С‘С‚РѕРј РЅР° Rust"
 publish = false
 
 [dependencies]
-# общая основа расширений RustGIS линейки, отдельное хранилище. Правка
-# крейта на месте - [patch] в .cargo/config.toml или путь вместо git.
+# РѕР±С‰Р°СЏ РѕСЃРЅРѕРІР° СЂР°СЃС€РёСЂРµРЅРёР№ RustGIS Р»РёРЅРµР№РєРё, РѕС‚РґРµР»СЊРЅРѕРµ С…СЂР°РЅРёР»РёС‰Рµ. РџСЂР°РІРєР°
+# РєСЂРµР№С‚Р° РЅР° РјРµСЃС‚Рµ - [patch] РІ .cargo/config.toml РёР»Рё РїСѓС‚СЊ РІРјРµСЃС‚Рѕ git.
 rustgis-kit = { git = "https://github.com/Valery35/rustgis-kit", tag = "v0.1.12" }
-# float_roundtrip: числа образцов модуля читаются до бита
+# float_roundtrip: С‡РёСЃР»Р° РѕР±СЂР°Р·С†РѕРІ РјРѕРґСѓР»СЏ С‡РёС‚Р°СЋС‚СЃСЏ РґРѕ Р±РёС‚Р°
 serde_json = { version = "1", features = ["float_roundtrip"] }
-# GeoTIFF для растровых команд: Deflate и LZW, как пишет RustGIS
+# GeoTIFF РґР»СЏ СЂР°СЃС‚СЂРѕРІС‹С… РєРѕРјР°РЅРґ: Deflate Рё LZW, РєР°Рє РїРёС€РµС‚ RustGIS
 tiff = { version = "0.11", default-features = false, features = ["deflate", "lzw"] }
 
-# сверка 1.09 гоняет решатель минимальной кривизны сотни раз: тесты
-# собираются с оптимизацией, иначе идут минутами
+# СЃРІРµСЂРєР° 1.09 РіРѕРЅСЏРµС‚ СЂРµС€Р°С‚РµР»СЊ РјРёРЅРёРјР°Р»СЊРЅРѕР№ РєСЂРёРІРёР·РЅС‹ СЃРѕС‚РЅРё СЂР°Р·: С‚РµСЃС‚С‹
+# СЃРѕР±РёСЂР°СЋС‚СЃСЏ СЃ РѕРїС‚РёРјРёР·Р°С†РёРµР№, РёРЅР°С‡Рµ РёРґСѓС‚ РјРёРЅСѓС‚Р°РјРё
 [profile.test]
 opt-level = 3
 
